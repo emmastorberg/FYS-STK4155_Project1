@@ -13,6 +13,15 @@ test_size = 0.2     # Proportion of data used in testing
 max_degree = 5      # Max degree of polynomial models plotted
 scaling = True      # Use scaling as default
 
+"""
+General to-do: 
+ - Add doc strings (Emma should probably be the one to do this before/on Sunday, September 8th)
+ - Implement Franke function as data set and modify design matrix/code accordingly
+
+ Part-specific to-dos are scattered throughout the code and collected as much as possible
+ in Overleaf and in the README.
+"""
+
 # --------------------------------------- HELPER VARIABLES, ARRAYS AND METHODS ---------------------------------------------
 
 degrees = range(1,max_degree+1)
@@ -205,8 +214,8 @@ ols_point_labels = [""]*int(max_degree*(max_degree+1)/2)
 
 for degree in degrees:
     ols = OrdinaryLeastSquares(degree, x, y)
-    ols.predict()
-    ols.analyze()
+    ols.predict()       # find optimal beta and use to make a prediction of the y-values
+    ols.analyze()       # compute statistical metrics for training and testing data
 
     ols_train_mse[degree-1] = ols.train_mse
     ols_test_mse[degree-1] = ols.test_mse
@@ -238,8 +247,8 @@ for lmbda in lmbda_list:
 
     for degree in degrees:
         ridge = RidgeRegression(degree, x, y, lmbda)
-        ridge.predict()
-        ridge.analyze()
+        ridge.predict()     # find optimal beta and use to make a prediction of the y-values
+        ridge.analyze()     # compute statistical metrics for training and testing data
 
         ridge_train_mse[degree-1] = ridge.train_mse
         ridge_test_mse[degree-1] = ridge.test_mse
@@ -265,6 +274,10 @@ for lmbda in lmbda_list:
     """
 
 # Part c) – Lasso Regression -------------------------------------------------------------------------------------------
+"""
+There is an issue here because in the plots, we see that we get negative R^2 scores, which I don't know if makes sense.
+"""
+
 for alpha in alpha_list:
     lasso_train_mse = np.zeros(max_degree)
     lasso_test_mse = np.zeros(max_degree)
@@ -276,8 +289,8 @@ for alpha in alpha_list:
 
     for degree in degrees:
         lasso = LassoRegression(degree, x, y, alpha)
-        lasso.predict()
-        lasso.analyze()
+        lasso.predict()     # find optimal beta and use to make a prediction of the y-values
+        lasso.analyze()     # compute statistical metrics for training and testing data
 
         lasso_train_mse[degree-1] = lasso.train_mse
         lasso_test_mse[degree-1] = lasso.test_mse
