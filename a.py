@@ -1,7 +1,7 @@
 # --------------------------------------------- CONFIGURATION AND IMPORTS ----------------------------------------
 import numpy as np
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+from sklearn.linear_model import LinearRegression, Lasso
 from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
@@ -17,6 +17,7 @@ scaling = True      # Use scaling as default
 
 degrees = range(1,max_degree+1)
 lmbda_list = [0.0001, 0.001, 0.01, 0.1, 1.0]
+alpha_list = [0.1, 0.5, 0.9, 1.5, 3.0]
 
 def design_matrix(x, degree, scaling=scaling):
     """
@@ -89,18 +90,6 @@ class Model:
 
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X, y, test_size=test_size)
 
-    def predict(self):
-        self._find_optimal_parameters()
-
-        # WE MUST COMMENT ON THE SCALING! REMOVE THIS WHEN DONE
-        if scaling:
-            self.y_tilde_train = self.X_train @ self.beta_hat + np.mean(self.y_train)
-            self.y_tilde_test = self.X_test @ self.beta_hat + np.mean(self.y_train)
-
-        else:
-            self.y_tilde_train = self.X_train @ self.beta_hat
-            self.y_tilde_test = self.X_test @ self.beta_hat
-
     def analyze(self):
         """
         To do here(?): 
@@ -123,8 +112,17 @@ class OrdinaryLeastSquares(Model):
         self.colors = ["royalblue", "cornflowerblue", "chocolate", "sandybrown","orchid"]
         self.name = "Ordinary Least Squares"
 
-    def _find_optimal_parameters(self):
+    def predict(self):
         self.beta_hat = np.linalg.inv(self.X_train.T @ self.X_train) @ self.X_train.T @ self.y_train 
+
+        # WE MUST COMMENT ON THE SCALING! REMOVE THIS WHEN DONE
+        if scaling:
+            self.y_tilde_train = self.X_train @ self.beta_hat + np.mean(self.y_train)
+            self.y_tilde_test = self.X_test @ self.beta_hat + np.mean(self.y_train)
+
+        else:
+            self.y_tilde_train = self.X_train @ self.beta_hat
+            self.y_tilde_test = self.X_test @ self.beta_hat
 
 
 class RidgeRegression(Model):
@@ -134,8 +132,38 @@ class RidgeRegression(Model):
         self.colors = ["forestgreen", "limegreen", "darkgoldenrod", "goldenrod", "darkorange"]
         self.name = fr"Ridge Regression ($\lambda = {self.lmbda})$"
 
-    def _find_optimal_parameters(self):
+    def predict(self):
         self.beta_hat = np.linalg.inv(self.X_train.T @ self.X_train + self.lmbda*np.identity(self.degree)) @ self.X_train.T @ self.y_train
+
+        # WE MUST COMMENT ON THE SCALING! REMOVE THIS WHEN DONE
+        if scaling:
+            self.y_tilde_train = self.X_train @ self.beta_hat + np.mean(self.y_train)
+            self.y_tilde_test = self.X_test @ self.beta_hat + np.mean(self.y_train)
+
+        else:
+            self.y_tilde_train = self.X_train @ self.beta_hat
+            self.y_tilde_test = self.X_test @ self.beta_hat
+
+class LassoRegression(Model):
+    def __init__(self, degree, x, y, alpha):
+        super().__init__(degree, x, y)
+        self.alpha = alpha
+        self.colors = ["firebrick", "lightcoral", "lightseagreen", "turquoise", "blueviolet"]
+        self.name = fr"Lasso Regression ($\alpha = {self.alpha})$"
+
+    def predict(self):
+        lasso = Lasso(alpha=self.alpha)
+        lasso.fit(self.X_train, self.y_train)
+        self.beta_hat = lasso.coef_
+
+        # WE MUST COMMENT ON THE SCALING! REMOVE THIS WHEN DONE
+        if scaling:
+            self.y_tilde_train = lasso.predict(self.X_train) + np.mean(self.y_train)
+            self.y_tilde_test = lasso.predict(self.X_test) + np.mean(self.y_train)
+
+        else:
+            self.y_tilde_train = lasso.predict(self.X_train)
+            self.y_tilde_test = lasso.predict(self.X_test)
 
 
 # ----------------------------------------------- EXECUTABLE CODE ---------------------------------------------
@@ -236,4 +264,34 @@ for lmbda in lmbda_list:
     just as a function of the polynomial degree, but we can do this later.
     """
 
-    # Part c) – Lasso Regression -------------------------------------------------------------------------------------------
+# Part c) – Lasso Regression -------------------------------------------------------------------------------------------
+for alpha in alpha_list:
+    lasso_train_mse = np.zeros(max_degree)
+    lasso_test_mse = np.zeros(max_degree)
+    lasso_train_r2 = np.zeros(max_degree)
+    lasso_test_r2 = np.zeros(max_degree)
+
+    lasso_parameters = np.zeros((2, int(max_degree*(max_degree+1)/2))) 
+    lasso_point_labels = [""]*int(max_degree*(max_degree+1)/2)  
+
+    for degree in degrees:
+        lasso = LassoRegression(degree, x, y, alpha)
+        lasso.predict()
+        lasso.analyze()
+
+        lasso_train_mse[degree-1] = lasso.train_mse
+        lasso_test_mse[degree-1] = lasso.test_mse
+        lasso_train_r2[degree-1] = lasso.train_r2
+        lasso_test_r2[degree-1] = lasso.test_r2
+
+        # Making parameters plottable
+        beta = lasso.beta_hat
+        prev_degree = degree - 1
+        shift = int(prev_degree*(prev_degree+1)/2)
+
+        for i in range(len(beta)):
+            lasso_parameters[0][shift + i] = degree   # Makes a list incrementing up the degrees to correspond to the betas we store
+            lasso_parameters[1][shift + i] = beta[i]  # Stores betas for easier plotting later
+            lasso_point_labels[shift + i] = fr"$\beta_{i}$"
+
+    plot_train_test_and_parameters(lasso, lasso_train_mse, lasso_test_mse, lasso_train_r2, lasso_test_r2, lasso_parameters, lasso_point_labels)
