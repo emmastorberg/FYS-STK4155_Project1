@@ -1,4 +1,6 @@
 # --------------------------------------------- CONFIGURATION AND IMPORTS ----------------------------------------
+import math
+
 import numpy as np
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from sklearn.linear_model import LinearRegression, Lasso
@@ -47,6 +49,43 @@ def design_matrix(x, degree, scaling=scaling):
             X[:,i] = x[:,0]**(i+1) 
     
     return X
+
+
+def multivariate_design_matrix(x: np.ndarray, y: np.ndarray, degree: int, scaling: bool = scaling) -> tuple[np.ndarray]:
+    """
+    Generates a design matrix for polynomial fitting of two variables (x and y).
+    
+    Args:
+        x (np.ndarray): Array of x values, shape (n,1).
+        y (np.ndarray): Array of y values, shape (n,1).
+        degree (int): Degree of the polynomial.
+        scale (bool): Whether to scale the data or not.
+
+    Returns:
+        tuple:
+            design_matrix X (np.ndarray): The generated design matrix for the polynomial fit. shape (n, p).
+            coefficients C (np.ndarray): The coefficient row vector, shape(p,).
+    """
+    n = len(x)
+    p = int((degree + 1) * degree / 2 + degree)  # Number of terms in the polynomial expansion
+    
+    # Initialize design matrix and coefficients vector
+    X = np.zeros((n, p))
+    C = np.zeros(p)
+
+    # Generate design matrix and coefficients
+    for i in range(degree):
+        base_index = int((i + 1) * i / 2 + i)  # Calculate base index for the current degree
+        
+        for j in range(i + 2):
+            # Fill the design matrix with x and y raised to appropriate powers
+            X[:, base_index + j] = x[:, 0]**(i + 2 - j) * y[:, 0]**(j)
+            if scaling:
+                X[:, base_index + 1] -= np.mean(X[:, base_index + 1])
+            C[base_index + j] = math.comb(i + 1, j)  # Calculate binomial coefficient
+
+    return X, C
+
 
 def plot_train_test_and_parameters(model, train_mse, test_mse, train_r2, test_r2, parameters, point_labels, standard_colors=False):
         if standard_colors:
@@ -180,6 +219,7 @@ class LassoRegression(Model):
 # Making data set (temporary)
 x = np.linspace(-3, 3, n).reshape(-1, 1)
 y = np.exp(-x**2) + 1.5 * np.exp(-(x-2)**2) + np.random.normal(0, 0.1, x.shape)
+
 
 """
 # IN FINAL PROGRAM:
