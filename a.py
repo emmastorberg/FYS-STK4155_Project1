@@ -28,7 +28,7 @@ degrees = range(1,max_degree+1)
 lmbda_list = [0.0001, 0.001, 0.01, 0.1, 1.0]
 alpha_list = [0.1, 0.5, 0.9, 1.5, 3.0]
 
-def design_matrix(x, degree, scaling=scaling):
+def design_matrix(x: np.array, degree: int, scaling: bool=scaling) -> np.array:
     """
     This function will need to be changed to
     accommodate multi-variable functions.
@@ -91,7 +91,7 @@ def plot_train_test_and_parameters(model, train_mse, test_mse, train_r2, test_r2
 # --------------------------------------------- DEFINING CLASS FOR DIFFERENT MODELS ---------------------------------------
 
 class Model:
-    def __init__(self, degree, x, y):
+    def __init__(self, degree: int, x: np.array, y: np.array) -> None:
         self.degree = degree
         self.x = x
         self.y = y
@@ -99,7 +99,7 @@ class Model:
 
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X, y, test_size=test_size)
 
-    def analyze(self):
+    def analyze(self) -> None:
         """
         To do here(?): 
         Find out if we can use sklearn methods, or if we have to define our own. 
@@ -111,17 +111,17 @@ class Model:
         self.train_r2 = r2_score(self.y_train, self.y_tilde_train)
         self.test_r2 = r2_score(self.y_test, self.y_tilde_test)
 
-    def make_plottable_parameters(self):
+    def make_plottable_parameters(self) -> None:
         return [b for sublist in self.beta_hat for b in sublist]
 
 
 class OrdinaryLeastSquares(Model):
-    def __init__(self, degree, x, y):
+    def __init__(self, degree: int, x: np.array, y: np.array) -> None:
         super().__init__(degree, x, y)
         self.colors = ["royalblue", "cornflowerblue", "chocolate", "sandybrown","orchid"]
         self.name = "Ordinary Least Squares"
 
-    def predict(self):
+    def predict(self) -> None:
         self.beta_hat = np.linalg.inv(self.X_train.T @ self.X_train) @ self.X_train.T @ self.y_train 
 
         # WE MUST COMMENT ON THE SCALING! REMOVE THIS WHEN DONE
@@ -135,13 +135,13 @@ class OrdinaryLeastSquares(Model):
 
 
 class RidgeRegression(Model):
-    def __init__(self, degree, x, y, lmbda):
+    def __init__(self, degree: int, x: np.array, y: np.array, lmbda: float) -> None:
         super().__init__(degree, x, y)
         self.lmbda = lmbda
         self.colors = ["forestgreen", "limegreen", "darkgoldenrod", "goldenrod", "darkorange"]
         self.name = fr"Ridge Regression ($\lambda = {self.lmbda})$"
 
-    def predict(self):
+    def predict(self) -> None:
         self.beta_hat = np.linalg.inv(self.X_train.T @ self.X_train + self.lmbda*np.identity(self.degree)) @ self.X_train.T @ self.y_train
 
         # WE MUST COMMENT ON THE SCALING! REMOVE THIS WHEN DONE
@@ -154,13 +154,13 @@ class RidgeRegression(Model):
             self.y_tilde_test = self.X_test @ self.beta_hat
 
 class LassoRegression(Model):
-    def __init__(self, degree, x, y, alpha):
+    def __init__(self, degree: int, x: np.array, y: np.array, alpha: float) -> None:
         super().__init__(degree, x, y)
         self.alpha = alpha
         self.colors = ["firebrick", "lightcoral", "lightseagreen", "turquoise", "blueviolet"]
         self.name = fr"Lasso Regression ($\alpha = {self.alpha})$"
 
-    def predict(self):
+    def predict(self) -> None:
         lasso = Lasso(alpha=self.alpha)
         lasso.fit(self.X_train, self.y_train)
         self.beta_hat = lasso.coef_
