@@ -22,7 +22,7 @@ class Model:
         ) -> None:
 
         self.x = x
-        self.y = y
+        self.y = y.flatten()
         self.maxdegree = maxdegree
         self.test_size = test_size
         self.scale = scale
@@ -45,7 +45,6 @@ class Model:
             X_train[d], X_test[d], y_train[d], y_test[d] = train_test_split(X, self.y, test_size=self.test_size)
         return X_train, X_test, y_train, y_test
 
-
     def design_matrix(self, degree) -> np.ndarray:
         """
         Generates a design matrix for polynomial fitting (univariate).
@@ -60,23 +59,24 @@ class Model:
         """
         if self.multidim:
             # multivariate
-            x1, x2 = self.x
-            n = len(x1)
-            p = int((degree + 1) * degree / 2 + degree)  # Number of terms in the polynomial expansion
+            X1, X2 = self.x
+            X1 = X1.flatten()
+            X2 = X2.flatten()
+
+            n = len(X1)
+            p = int((degree + 1) * (degree + 2) / 2 - 1)  # Number of terms in the polynomial expansion
 
             X = np.zeros((n, p))
-            C = np.zeros(p)
 
             for i in range(degree):
                 base_index = int((i + 1) * i / 2 + i)  # Calculate base index for the current degree
 
                 for j in range(i + 2):
                     # Fill the design matrix with x and y raised to appropriate powers
-                    X[:, base_index + j] = x1[:, 0]**(i + 2 - j) * x2[:, 0]**(j)
+                    X[:, base_index + j] = X1**(i + 1 - j) * X2**(j)
                     if self.scale:
                         X[:, base_index + 1] -= np.mean(X[:, base_index + 1])
-                    C[base_index + j] = math.comb(i + 1, j)  # Calculate binomial coefficient
-
+            print(X)
             return X
 
         else:
@@ -375,8 +375,9 @@ def generate_data(n: int, seed: int, multidim: bool = False) -> tuple[np.ndarray
     if multidim:
         x1 = np.linspace(0, 1, n).reshape(-1, 1)
         x2 = np.linspace(0, 1, n).reshape(-1, 1)
-        y = Franke_function(x1, x2)
-        return (x1, x2), y
+        X1, X2 = np.meshgrid(x1, x2)
+        Y = Franke_function(X1, X2)
+        return (X1, X2), Y
 
     else:
         x = np.linspace(-3, 3, n).reshape(-1, 1)
@@ -407,12 +408,12 @@ def main():
     Z = Franke_function(X, Y, noise=False)
     surf = axs[0].plot_surface(X, Y, Z, cmap=cm.coolwarm,
                            linewidth=0, antialiased=False)
-    # plt.show()
-    x, y = generate_data(n, seed, multidim)
-    # x = np.ones(n).reshape(-1, 1)
-    # y = x * 2
-    OLS = OrdinaryLeastSquares(x, y, maxdegree, scale=False, multidim=multidim, test_size=test_size)
-    OLS.predict()
+    plt.show()
+    # x, y = generate_data(n, seed, multidim)
+    # # x = np.ones(n).reshape(-1, 1)
+    # # y = x * 2
+    # OLS = OrdinaryLeastSquares(x, y, maxdegree, scale=False, multidim=multidim, test_size=test_size)
+    # OLS.predict()
     # OLS.analyze()
     # beta = OLS.beta_hat[3]
     # surf = axs[1].plot_surface(X, Y, OLS.design_matrices[3] @ beta)
