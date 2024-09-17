@@ -76,7 +76,6 @@ class Model:
                     X[:, base_index + j] = X1**(i + 1 - j) * X2**(j)
                     if self.scale:
                         X[:, base_index + 1] -= np.mean(X[:, base_index + 1])
-            print(X)
             return X
 
         else:
@@ -89,56 +88,92 @@ class Model:
                 if self.scale:
                     X[:,i] -= np.mean(X[:,i])
             return X
+        
+    def plot_MSE_and_R2(self, ax, param = None):
+        degrees = np.arange(1, self.maxdegree + 1)
+        c1, c2, c3, c4, _ = self.colors
+        if param is None:
+            MSE_train, MSE_test, R2_train, R2_test = self.MSE_train, self.MSE_test, self.R2_train, self.R2_test
+        else:
+            MSE_train, MSE_test, R2_train, R2_test = self.MSE_train[param], self.MSE_test[param], self.R2_train[param], self.R2_test[param]
+        ax.plot(degrees, MSE_train, label="MSE of Training Data", color=c1, linestyle="dotted", marker="o")
+        ax.plot(degrees, MSE_test, label="MSE of Testing Data", color=c2, linestyle="dashed", marker="o")
+        ax.plot(degrees, R2_train, label=r"$R^2$ score of Training Data", color=c3, linestyle="dotted", marker="o")
+        ax.plot(degrees, R2_test, label=r"$R^2$ Score of Testing Data", color=c4, linestyle="dashed", marker="o")
+        ax.set_title(f"Statistical Metrics of {self.name} Method")
+        ax.set_xlabel("Degree of Polynomial Model")
+        ax.xaxis.set_major_locator(MultipleLocator(1))
+        ax.set_ylabel("Value")
+        ax.grid(True)
+        ax.legend()
 
-    def plot_train_test_and_parameters(self, param = None):
-            colors = ["royalblue", "cornflowerblue", "chocolate", "sandybrown","orchid"]
+    def plot_optimal_beta(self, ax, param = None):
+        color = self.colors[-1]
+        if param is None:
+            beta_hat = self.beta_hat
+        else:
+            beta_hat = self.beta_hat[param]
+        for d, beta in beta_hat.items():
+            ax.scatter([d+1] * len(beta), beta, color=color)
+            # ax.annotate(fr"\beta_{d+1}"+f" = {beta:.3f}", (d+1, beta), textcoords="offset points", xytext=(60, 7), ha='right')
+        ax.set_title(f"Optimal Parameters of {self.name} Method")
+        ax.set_xlabel("Degree of Polynomial Model")
+        ax.xaxis.set_major_locator(MultipleLocator(1))
+        ax.set_ylabel("Value")
+        ax.grid(True)
+
+        
+
+
+    # def plot_train_test_and_parameters(self, param = None):
+    #         colors = ["royalblue", "cornflowerblue", "chocolate", "sandybrown","orchid"]
                 
-            # Plotting statistical metrics
-            fig, axs = plt.subplots(1, 2, figsize=(16, 9))
-            degrees = np.arange(1, self.maxdegree + 1)
+    #         # Plotting statistical metrics
+    #         fig, axs = plt.subplots(1, 2, figsize=(16, 9))
+    #         degrees = np.arange(1, self.maxdegree + 1)
 
-            if param is None:
-                MSE_train = self.MSE_train
-                MSE_test = self.MSE_test
-                R2_train = self.R2_train
-                R2_test = self.R2_test
-                beta_hat = self.beta_hat
-            else:
-                MSE_train = self.MSE_train[param]
-                MSE_test = self.MSE_test[param]
-                R2_train = self.R2_train[param]
-                R2_test = self.R2_test[param]
-                beta_hat = self.beta_hat[param]
+    #         if param is None:
+    #             MSE_train = self.MSE_train
+    #             MSE_test = self.MSE_test
+    #             R2_train = self.R2_train
+    #             R2_test = self.R2_test
+    #             beta_hat = self.beta_hat
+    #         else:
+    #             MSE_train = self.MSE_train[param]
+    #             MSE_test = self.MSE_test[param]
+    #             R2_train = self.R2_train[param]
+    #             R2_test = self.R2_test[param]
+    #             beta_hat = self.beta_hat[param]
 
-            axs[0].plot(degrees, MSE_train, label="MSE of Training Data", color=colors[0], linestyle="dotted", marker="o")
-            axs[0].plot(degrees, MSE_test, label="MSE of Testing Data", color=colors[1], linestyle="dashed", marker="o")
-            axs[0].plot(degrees, R2_train, label=r"$R^2$ Score of Training Data", color=colors[2], linestyle="dotted", marker="o")
-            axs[0].plot(degrees, R2_test, label=r"$R^2$ Score of Testing Data", color=colors[3], linestyle="dashed", marker="o")
-            axs[0].set_title("Statistical Metrics")
-            axs[0].set_xlabel("Degree of Polynomial Model")
-            axs[0].xaxis.set_major_locator(MultipleLocator(1))
-            axs[0].set_ylabel("Value")
-            axs[0].legend()
-            axs[0].grid(True)
+    #         axs[0].plot(degrees, MSE_train, label="MSE of Training Data", color=colors[0], linestyle="dotted", marker="o")
+    #         axs[0].plot(degrees, MSE_test, label="MSE of Testing Data", color=colors[1], linestyle="dashed", marker="o")
+    #         axs[0].plot(degrees, R2_train, label=r"$R^2$ Score of Training Data", color=colors[2], linestyle="dotted", marker="o")
+    #         axs[0].plot(degrees, R2_test, label=r"$R^2$ Score of Testing Data", color=colors[3], linestyle="dashed", marker="o")
+    #         axs[0].set_title("Statistical Metrics")
+    #         axs[0].set_xlabel("Degree of Polynomial Model")
+    #         axs[0].xaxis.set_major_locator(MultipleLocator(1))
+    #         axs[0].set_ylabel("Value")
+    #         axs[0].legend()
+    #         axs[0].grid(True)
 
-            # Plotting optimal parameters
-            axs[1].scatter(degrees, beta_hat, color=colors[4])
+    #         # Plotting optimal parameters
+    #         # axs[1].scatter(degrees, beta_hat, color=colors[4])
 
-            """
-            This labeling looks a bit wonky. Fix later if necessary.
-            """
-            for degree, b in zip(degrees, beta_hat):
-                axs[1].annotate(fr"\beta_{degree}"+f" = {b:.3f}", (degree, b), textcoords="offset points", xytext=(60, 7), ha='right')
+    #         # """
+    #         # This labeling looks a bit wonky. Fix later if necessary.
+    #         # """
+    #         # for degree, b in zip(degrees, beta_hat):
+    #         #     axs[1].annotate(fr"\beta_{degree}"+f" = {b:.3f}", (degree, b), textcoords="offset points", xytext=(60, 7), ha='right')
 
-            axs[1].set_title("Optimal Parameters")
-            axs[1].set_xlabel("Degree of Polynomial Model")
-            axs[1].xaxis.set_major_locator(MultipleLocator(1))
-            axs[1].set_ylabel("Value")
-            axs[1].grid(True)
+    #         axs[1].set_title("Optimal Parameters")
+    #         axs[1].set_xlabel("Degree of Polynomial Model")
+    #         axs[1].xaxis.set_major_locator(MultipleLocator(1))
+    #         axs[1].set_ylabel("Value")
+    #         axs[1].grid(True)
 
-            fig.suptitle(self.name)
-            plt.tight_layout()
-            plt.show()
+    #         fig.suptitle(self.name)
+    #         plt.tight_layout()
+    #         plt.show()
 
 
 class OrdinaryLeastSquares(Model):
@@ -167,7 +202,6 @@ class OrdinaryLeastSquares(Model):
             X_train = self.X_train[d]
             X_test = self.X_test[d]
             y_train = self.y_train[d]
-            print(X_train.T @ X_train)
             self.beta_hat[d] = np.linalg.inv(X_train.T @ X_train) @ X_train.T @ y_train
             beta_hat = self.beta_hat[d] 
 
@@ -200,6 +234,16 @@ class OrdinaryLeastSquares(Model):
             self.R2_train[d] = r2_score(self.y_train[d], self.y_tilde_train[d])
             self.R2_test[d] = r2_score(self.y_test[d], self.y_tilde_test[d])
 
+    def plot_MSE_and_R2(self):
+        fig, ax = plt.subplots()
+        super().plot_MSE_and_R2(ax)
+        plt.show()
+
+    def plot_optimal_beta(self):
+        fig, ax = plt.subplots()
+        super().plot_optimal_beta(ax)
+        plt.show()
+
 
 class RidgeRegression(Model):
     def __init__(
@@ -218,7 +262,7 @@ class RidgeRegression(Model):
             lmbda = [lmbda]
         self.lmbda = lmbda
         self.colors = ["forestgreen", "limegreen", "darkgoldenrod", "goldenrod", "darkorange"]
-        self.name = fr"Ridge Regression ($\lambda = {self.lmbda})$"
+        self.name = "Ridge Regression"
 
     def predict(self):
 
@@ -238,8 +282,8 @@ class RidgeRegression(Model):
                 X_test = self.X_test[d]
                 y_train = self.y_train[d]
 
-                self.beta_hat[d] = np.linalg.inv(X_train.T @ X_train + l*np.identity(len(X_train[0]))) @ X_train.T @ y_train
-                beta_hat = self.beta_hat[d]
+                self.beta_hat[l][d] = np.linalg.inv(X_train.T @ X_train + l*1000*np.eye(len(X_train[0]))) @ X_train.T @ y_train
+                beta_hat = self.beta_hat[l][d]
 
                 # WE MUST COMMENT ON THE SCALING! REMOVE THIS WHEN DONE
                 if self.scale:
@@ -275,6 +319,32 @@ class RidgeRegression(Model):
 
                 self.R2_train[l][d] = r2_score(self.y_train[d], self.y_tilde_train[l][d])
                 self.R2_test[l][d] = r2_score(self.y_test[d], self.y_tilde_test[l][d])
+            # print(f"lambda = {l}: \n {self.MSE_train[l]} \n")
+
+    def plot_MSE_and_R2(self):
+        for l in self.lmbda:
+            fig, ax = plt.subplots()
+            super().plot_MSE_and_R2(ax, l)
+            fig.suptitle(rf"$\lambda$ = {l}")
+            plt.show()
+
+    def plot_optimal_beta(self):
+        for l in self.lmbda:
+            fig, ax = plt.subplots()
+            super().plot_optimal_beta(ax, l)
+            fig.suptitle(rf"$\lambda$ = {l}")
+            plt.show()
+
+    def MSE_per_lmbda(self, degree):
+        """degree must be smaller than or equal maxdegree"""
+        fig, ax = plt.subplots()
+        MSE_test = [self.MSE_test[l][degree-1] for l in self.lmbda]
+        MSE_train = [self.MSE_train[l][degree-1] for l in self.lmbda]
+        ax.plot(self.lmbda, MSE_test, linestyle="dashed", label="test")
+        ax.plot(self.lmbda, MSE_train, label="train")
+        ax.legend()
+        ax.set_xscale("log")
+        plt.show()
 
 
 class LassoRegression(Model):
@@ -292,7 +362,7 @@ class LassoRegression(Model):
         super().__init__(x, y, maxdegree, test_size, scale, multidim)
         self.alpha = alpha
         self.colors = ["firebrick", "lightcoral", "lightseagreen", "turquoise", "blueviolet"]
-        self.name = fr"Lasso Regression ($\alpha = {self.alpha})$"
+        self.name = "Lasso Regression"
 
     def predict(self):
         maxdegree = self.maxdegree
@@ -352,6 +422,31 @@ class LassoRegression(Model):
                 self.R2_train[a][d] = r2_score(self.y_train[d], self.y_tilde_train[a][d])
                 self.R2_test[a][d] = r2_score(self.y_test[d], self.y_tilde_test[a][d])
 
+    def plot_MSE_and_R2(self):
+        for a in self.alpha:
+            fig, ax = plt.subplots()
+            super().plot_MSE_and_R2(ax, a)
+            fig.suptitle(rf"$\alpha$ = {a}")
+            plt.show()
+
+    def plot_optimal_beta(self):
+        for a in self.alpha:
+            fig, ax = plt.subplots()
+            super().plot_optimal_beta(ax, a)
+            fig.suptitle(rf"$\alpha$ = {a}")
+            plt.show()
+
+    def MSE_per_alpha(self, degree):
+        """degree must be smaller than or equal maxdegree"""
+        fig, ax = plt.subplots()
+        MSE_test = [self.MSE_test[a][degree-1] for a in self.alpha]
+        MSE_train = [self.MSE_train[a][degree-1] for a in self.alpha]
+        ax.plot(self.alpha, MSE_test, linestyle="dashed", label="train")
+        ax.plot(self.alpha, MSE_train, label="test")
+        ax.legend()
+        plt.show()
+
+
 
 def Franke_function(x: np.ndarray, y: np.ndarray, noise: bool = True) -> np.ndarray:
     """
@@ -385,55 +480,55 @@ def generate_data(n: int, seed: int, multidim: bool = False) -> tuple[np.ndarray
         return x, y
 
 
+def plot_true_vs_pred_Franke(n, degree, seed):
+    fig, axs = plt.subplots(1, 2, subplot_kw={"projection": "3d"})
+    x = np.linspace(0, 1, n)
+    y = np.linspace(0, 1, n)
+    X, Y = np.meshgrid(x, y)
+    Z = Franke_function(X, Y, noise=False)
+    axs[0].plot_surface(X, Y, Z, cmap=cm.coolwarm, linewidth=0, antialiased=False)
+    x, y = generate_data(n, seed, multidim=True)
+    OLS = OrdinaryLeastSquares(x, y, degree, multidim=True)
+    OLS.predict()
+    beta = OLS.beta_hat[degree - 1]
+    X_matrix = OLS.design_matrices[degree - 1]
+    axs[1].plot_surface(X, Y, (X_matrix @ beta).reshape(n,n), cmap=cm.coolwarm, linewidth=0, antialiased=False)
+    plt.show()
+
+
+
 def main():
-    n = 8
+    n = 100
     seed = 8
     test_size = 0.2
-    maxdegree = 4
+    maxdegree = 10
     scale = True
     multidim = True
 
-    lmbda = [0.0001, 0.001, 0.01, 0.1, 1.0]
+    lmbda = [0, 0.0001, 0.001, 0.01, 0.1, 1.0]
     alpha = [0.1, 0.5, 0.9, 1.5, 3.0]
-    # x = np.ones(n).reshape(-1, 1)
-    # y = x * 2
-    # x, y = generate_data(n, seed, True)
-    # OLS = OrdinaryLeastSquares(x, y, 4, scale = False, multidim=True)
-    # print(OLS.design_matrices[3])
-    
-    fig, axs = plt.subplots(1, 2, subplot_kw={"projection": "3d"})
-    x = np.linspace(0, 1, 50)
-    y = np.linspace(0, 1, 50)
-    X, Y = np.meshgrid(x, y)
-    Z = Franke_function(X, Y, noise=False)
-    surf = axs[0].plot_surface(X, Y, Z, cmap=cm.coolwarm,
-                           linewidth=0, antialiased=False)
-    plt.show()
-    # x, y = generate_data(n, seed, multidim)
-    # # x = np.ones(n).reshape(-1, 1)
-    # # y = x * 2
-    # OLS = OrdinaryLeastSquares(x, y, maxdegree, scale=False, multidim=multidim, test_size=test_size)
-    # OLS.predict()
-    # OLS.analyze()
-    # beta = OLS.beta_hat[3]
-    # surf = axs[1].plot_surface(X, Y, OLS.design_matrices[3] @ beta)
-    
 
-    
+    x, y = generate_data(n, seed, multidim)
 
+    OLS = OrdinaryLeastSquares(x, y, maxdegree, test_size, scale, multidim)
+    OLS.predict()
+    OLS.analyze()
+    # OLS.plot_MSE_and_R2()
+    OLS.plot_optimal_beta()
 
-    plt.show()
-    # OLS.plot_train_test_and_parameters()
+    Ridge = RidgeRegression(lmbda, x, y, maxdegree, scale=scale, multidim=multidim, test_size=test_size)
+    Ridge.predict()
+    Ridge.analyze()
+    # Ridge.plot_MSE_and_R2()
+    Ridge.plot_optimal_beta()
+    Ridge.MSE_per_lmbda(10)
 
-    # Ridge = RidgeRegression(lmbda, x, y, maxdegree, scale=scale, multidim=multidim, test_size=test_size)
-    # Ridge.predict()
-    # Ridge.analyze()
-    # # Ridge.plot_MSE_R2_beta()
-
-    # Lasso = LassoRegression(alpha, x, y, maxdegree, scale=scale, multidim=multidim, test_size=test_size)
-    # Lasso.predict()
-    # Lasso.analyze()
-    # # Lasso.plot_MSE_R2_beta()
+    Lasso = LassoRegression(alpha, x, y, maxdegree, scale=scale, multidim=multidim, test_size=test_size)
+    Lasso.predict()
+    Lasso.analyze()
+    # Lasso.plot_MSE_and_R2()
+    Lasso.plot_optimal_beta()
+    Lasso.MSE_per_alpha(10)
 
 
 if __name__ == "__main__":
