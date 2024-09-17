@@ -7,6 +7,7 @@ from sklearn.linear_model import LinearRegression, Lasso
 from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
+from matplotlib import cm
 from sklearn.model_selection import train_test_split
 
 np.random.seed(8)   # Using a set seed for consistency in testing
@@ -54,7 +55,7 @@ def design_matrix(x: np.array, degree: int, scaling: bool=scaling) -> np.array:
 def multivariate_design_matrix(x: np.ndarray, y: np.ndarray, degree: int, scaling: bool = scaling) -> tuple[np.ndarray]:
     """
     Generates a design matrix for polynomial fitting of two variables (x and y).
-    
+
     Args:
         x (np.ndarray): Array of x values, shape (n,1).
         y (np.ndarray): Array of y values, shape (n,1).
@@ -68,7 +69,7 @@ def multivariate_design_matrix(x: np.ndarray, y: np.ndarray, degree: int, scalin
     """
     n = len(x)
     p = int((degree + 1) * degree / 2 + degree)  # Number of terms in the polynomial expansion
-    
+
     # Initialize design matrix and coefficients vector
     X = np.zeros((n, p))
     C = np.zeros(p)
@@ -76,7 +77,7 @@ def multivariate_design_matrix(x: np.ndarray, y: np.ndarray, degree: int, scalin
     # Generate design matrix and coefficients
     for i in range(degree):
         base_index = int((i + 1) * i / 2 + i)  # Calculate base index for the current degree
-        
+
         for j in range(i + 2):
             # Fill the design matrix with x and y raised to appropriate powers
             X[:, base_index + j] = x[:, 0]**(i + 2 - j) * y[:, 0]**(j)
@@ -126,6 +127,30 @@ def plot_train_test_and_parameters(model, train_mse, test_mse, train_r2, test_r2
         fig.suptitle(model.name)
         plt.tight_layout()
         plt.show()
+
+
+def bias_variance_plot(x, y):
+    # TODO: THIS IS WRONG
+    # TODO: THIS IS WRONG
+    # TODO: THIS IS WRONG
+    # TODO: THIS IS WRONG
+    # TODO: THIS IS WRONG
+    # TODO: THIS IS WRONG
+    maxdegree = 15
+    polydegree = np.arange(15)
+    MSE_test = []
+    MSE_train = []
+    for degree in range(maxdegree):
+        model = OrdinaryLeastSquares(degree, x, y)
+        model.predict()
+        model.analyze()
+        MSE_test.append(model.test_mse)
+        MSE_train.append(model.train_mse)
+    plt.plot(polydegree, MSE_train, label="train")
+    plt.plot(polydegree, MSE_test, label="test")
+    plt.legend()
+    plt.show()
+
 
 # --------------------------------------------- DEFINING CLASS FOR DIFFERENT MODELS ---------------------------------------
 
@@ -220,7 +245,6 @@ class LassoRegression(Model):
 x = np.linspace(-3, 3, n).reshape(-1, 1)
 y = np.exp(-x**2) + 1.5 * np.exp(-(x-2)**2) + np.random.normal(0, 0.1, x.shape)
 
-
 """
 # IN FINAL PROGRAM:
 x = np.arange(0, 1, 0.05)
@@ -242,6 +266,34 @@ def FrankeFunction(x,y, noise=False):
 
 z = FrankeFunction(x, y)
 """
+
+def Franke_function(x: np.ndarray, y: np.ndarray, noise: bool = True) -> np.ndarray:
+    """
+    Calculate the Franke function for 
+    """
+    term1 = np.exp(-((9*x - 2)**2)/4 - ((9*y - 2)**2)/4)
+    term2 = np.exp(-((9*x + 1)**2)/49 - (9*y + 1)/10)
+    term3 = np.exp(-((9*x - 7)**2)/4 - ((9*y - 3)**2)/4)
+    term4 = np.exp(-(9*x - 4)**2 - (9*y - 7)**2)
+
+    Franke = 3/4 * term1 + 3/4 * term2 + 1/2 * term3 - 1/5 * term4
+
+    if noise:
+        Franke += np.random.normal(0, 0.1, x.shape)
+
+    return Franke
+
+
+# PLOT OF FRANKE FUNCTION
+# fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+# x = np.linspace(0, 1, 101)
+# y = np.linspace(0, 1, 101)
+# X, Y = np.meshgrid(x, y)
+# Z = Franke(X, Y)
+# surf = ax.plot_surface(X, Y, Z, cmap=cm.coolwarm,
+#                        linewidth=0, antialiased=False)
+# plt.show()
+
 
 # Part a) – Ordinary Least Squares -------------------------------------------------------------------------------------------
 ols_train_mse = np.zeros(max_degree)
