@@ -8,6 +8,7 @@ from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from sklearn.linear_model import LinearRegression, Lasso
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
+from sklearn.utils import resample
 
 
 class Model:
@@ -19,7 +20,9 @@ class Model:
         test_size: float,
         scale: bool,
         multidim: bool,
-        ) -> None:
+        ols: bool = False,
+        ridge: bool = False,
+        lasso: bool = False) -> None:
 
         self.x = x
         self.y = y.flatten()
@@ -29,6 +32,10 @@ class Model:
         self.multidim = multidim
         self.design_matrices = self.design_matrix_dict()
         self.X_train, self.X_test, self.y_train, self.y_test = self.train_test_dicts()
+        
+        self.ols = ols
+        self.ridge = ridge
+        self.lasso = lasso
 
     def design_matrix_dict(self):
         design_matrices = {}
@@ -76,7 +83,6 @@ class Model:
                     X[:, base_index + j] = X1**(i + 1 - j) * X2**(j)
                     if self.scale:
                         X[:, base_index + 1] -= np.mean(X[:, base_index + 1])
-            print(X)
             return X
 
         else:
@@ -140,6 +146,77 @@ class Model:
             plt.tight_layout()
             plt.show()
 
+    def _predict(self, parameter_list, resampling_type=None):
+        maxdegree = self.maxdegree
+        
+        self.y_tilde_train = {}
+        self.y_tilde_test = {}
+        self.beta_hat = {}
+
+        for p in parameter_list:
+            self.y_tilde_train[p] = {}
+            self.y_tilde_test[p] = {}
+            self.beta_hat[p] = {}
+
+            for d in range(maxdegree):
+                if self.lasso:
+                    model = Lasso(alpha=p)
+                    model.fit(self.X_train[d], self.y_train[d])
+                
+                X_train = self.X_train[d]
+                X_test = self.X_test[d]
+                y_train = self.y_train[d]
+
+                if not self.lasso:
+                    self.beta_hat[p][d] = np.linalg.inv(X_train.T @ X_train + p*np.identity(len(X_train[0]))) @ X_train.T @ y_train
+                    beta_hat = self.beta_hat[p][d]
+
+                    if self.scale:
+                        self.y_tilde_train[p][d] = X_train @ beta_hat + np.mean(y_train)
+                        self.y_tilde_test[p][d] = X_test @ beta_hat + np.mean(y_train)
+
+                    else:
+                        self.y_tilde_train[p][d] = X_train @ beta_hat
+                        self.y_tilde_test[p][d] = X_test @ beta_hat
+
+                else:
+                    self.beta_hat[p][d] = model.coef_
+
+                    if self.scale:
+                        self.y_tilde_train[p][d] = model.predict(X_train) + np.mean(y_train)
+                        self.y_tilde_test[p][d] = model.predict(X_test) + np.mean(y_train)
+
+                    else:
+                        self.y_tilde_train[p][d] = model.predict(X_train)
+                        self.y_tilde_test[p][d] = model.predict(X_test)
+
+    def _analyze(self, parameter_list, resampling_type=None):
+        """
+        To do here(?): 
+        Find out if we can use sklearn methods, or if we have to define our own. 
+        If we need our own, rewrite the next few lines with definitions of MSE and R^2.
+        """
+
+        maxdegree = self.maxdegree
+
+        self.MSE_train = {}
+        self.MSE_test = {}
+        self.R2_train = {}
+        self.R2_test = {}
+
+        for p in parameter_list:
+            self.MSE_train[p] = np.empty(maxdegree)
+            self.MSE_test[p] = np.empty(maxdegree)
+            self.R2_train[p] = np.empty(maxdegree)
+            self.R2_test[p] = np.empty(maxdegree)
+
+            for d in range(maxdegree):
+                self.MSE_train[p][d] = mean_squared_error(self.y_train[d], self.y_tilde_train[p][d])
+                self.MSE_test[p][d] = mean_squared_error(self.y_test[d], self.y_tilde_test[p][d])
+
+                self.R2_train[p][d] = r2_score(self.y_train[d], self.y_tilde_train[p][d])
+                self.R2_test[p][d] = r2_score(self.y_test[d], self.y_tilde_test[p][d])
+        
 
 class OrdinaryLeastSquares(Model):
     def __init__(
@@ -152,54 +229,19 @@ class OrdinaryLeastSquares(Model):
         multidim: bool = False,
         ) -> None:
 
-        super().__init__(x, y, maxdegree, test_size, scale, multidim)
+        super().__init__(x, y, maxdegree, test_size, scale, multidim, ols=True)
         self.colors = ["royalblue", "cornflowerblue", "chocolate", "sandybrown","orchid"]
         self.name = "Ordinary Least Squares"
 
-    def predict(self):
-        maxdegree = self.maxdegree
+    def predict(self, resampling_type=None):
+        parameter_list = [0]
 
-        self.y_tilde_train = {}
-        self.y_tilde_test = {}
-        self.beta_hat = {}
-        
-        for d in range(maxdegree):
-            X_train = self.X_train[d]
-            X_test = self.X_test[d]
-            y_train = self.y_train[d]
-            print(X_train.T @ X_train)
-            self.beta_hat[d] = np.linalg.inv(X_train.T @ X_train) @ X_train.T @ y_train
-            beta_hat = self.beta_hat[d] 
+        self._predict(parameter_list, resampling_type)
 
-            # WE MUST COMMENT ON THE SCALING! REMOVE THIS WHEN DONE
-            if self.scale:
-                self.y_tilde_train[d] = X_train @ beta_hat+ np.mean(y_train)
-                self.y_tilde_test[d] = X_test @ beta_hat + np.mean(y_train)
+    def analyze(self, resampling_type=None):
+        parameter_list = [0]
 
-            else:
-                self.y_tilde_train[d] = X_train @ beta_hat
-                self.y_tilde_test[d] = X_test @ beta_hat
-
-    def analyze(self):
-        """
-        To do here(?): 
-        Find out if we can use sklearn methods, or if we have to define our own. 
-        If we need our own, rewrite the next few lines with definitions of MSE and R^2.
-        """
-        maxdegree = self.maxdegree
-
-        self.MSE_train = np.empty(maxdegree)
-        self.MSE_test = np.empty(maxdegree)
-        self.R2_train = np.empty(maxdegree)
-        self.R2_test = np.empty(maxdegree)
-
-        for d in range(maxdegree):
-            self.MSE_train[d] = mean_squared_error(self.y_train[d], self.y_tilde_train[d])
-            self.MSE_test[d] = mean_squared_error(self.y_test[d], self.y_tilde_test[d])
-
-            self.R2_train[d] = r2_score(self.y_train[d], self.y_tilde_train[d])
-            self.R2_test[d] = r2_score(self.y_test[d], self.y_tilde_test[d])
-
+        self._analyze(parameter_list, resampling_type)
 
 class RidgeRegression(Model):
     def __init__(
@@ -213,69 +255,18 @@ class RidgeRegression(Model):
         multidim: bool = False,
         ) -> None:
         
-        super().__init__(x, y, maxdegree, test_size, scale, multidim)
+        super().__init__(x, y, maxdegree, test_size, scale, multidim, ridge=True)
         if isinstance(lmbda, int):
             lmbda = [lmbda]
         self.lmbda = lmbda
         self.colors = ["forestgreen", "limegreen", "darkgoldenrod", "goldenrod", "darkorange"]
         self.name = fr"Ridge Regression ($\lambda = {self.lmbda})$"
 
-    def predict(self):
+    def predict(self, resampling_type=None):
+        self._predict(self.lmbda, resampling_type)
 
-        maxdegree = self.maxdegree
-
-        self.y_tilde_train = {}
-        self.y_tilde_test = {}
-        self.beta_hat = {}
-        
-        for l in self.lmbda:
-            self.y_tilde_train[l] = {}
-            self.y_tilde_test[l] = {}
-            self.beta_hat[l] = {}
-
-            for d in range(maxdegree):
-                X_train = self.X_train[d]
-                X_test = self.X_test[d]
-                y_train = self.y_train[d]
-
-                self.beta_hat[d] = np.linalg.inv(X_train.T @ X_train + l*np.identity(len(X_train[0]))) @ X_train.T @ y_train
-                beta_hat = self.beta_hat[d]
-
-                # WE MUST COMMENT ON THE SCALING! REMOVE THIS WHEN DONE
-                if self.scale:
-                    self.y_tilde_train[l][d] = X_train @ beta_hat + np.mean(y_train)
-                    self.y_tilde_test[l][d] = X_test @ beta_hat + np.mean(y_train)
-
-                else:
-                    self.y_tilde_train[l][d] = X_train @ beta_hat
-                    self.y_tilde_test[l][d] = X_test @ beta_hat
-
-    def analyze(self):
-        """
-        To do here(?): 
-        Find out if we can use sklearn methods, or if we have to define our own. 
-        If we need our own, rewrite the next few lines with definitions of MSE and R^2.
-        """
-        maxdegree = self.maxdegree
-
-        self.MSE_train = {}
-        self.MSE_test = {}
-        self.R2_train = {}
-        self.R2_test = {}
-
-        for l in self.lmbda:
-            self.MSE_train[l] = np.empty(maxdegree)
-            self.MSE_test[l] = np.empty(maxdegree)
-            self.R2_train[l] = np.empty(maxdegree)
-            self.R2_test[l] = np.empty(maxdegree)
-
-            for d in range(maxdegree):
-                self.MSE_train[l][d] = mean_squared_error(self.y_train[d], self.y_tilde_train[l][d])
-                self.MSE_test[l][d] = mean_squared_error(self.y_test[d], self.y_tilde_test[l][d])
-
-                self.R2_train[l][d] = r2_score(self.y_train[d], self.y_tilde_train[l][d])
-                self.R2_test[l][d] = r2_score(self.y_test[d], self.y_tilde_test[l][d])
-
+    def analyze(self, resampling_type=None):
+        self._analyze(self.lmbda, resampling_type)
 
 class LassoRegression(Model):
     def __init__(
@@ -289,68 +280,16 @@ class LassoRegression(Model):
         multidim: bool = False,
         ) -> None:
         
-        super().__init__(x, y, maxdegree, test_size, scale, multidim)
+        super().__init__(x, y, maxdegree, test_size, scale, multidim, lasso=True)
         self.alpha = alpha
         self.colors = ["firebrick", "lightcoral", "lightseagreen", "turquoise", "blueviolet"]
         self.name = fr"Lasso Regression ($\alpha = {self.alpha})$"
 
-    def predict(self):
-        maxdegree = self.maxdegree
+    def predict(self, resampling_type=None):
+        self._predict(self.alpha, resampling_type)
 
-        self.y_tilde_train = {}
-        self.y_tilde_test = {}
-        self.beta_hat = {}
-
-        for a in self.alpha:
-            self.y_tilde_train[a] = {}
-            self.y_tilde_test[a] = {}
-            self.beta_hat[a] = {}
-
-            for d in range(maxdegree):
-                lasso = Lasso(alpha=a)
-                lasso.fit(self.X_train[d], self.y_train[d])
-                X_train = self.X_train[d]
-                X_test = self.X_test[d]
-                y_train = self.y_train[d]
-
-                self.beta_hat[a][d] = lasso.coef_
-
-                # WE MUST COMMENT ON THE SCALING! REMOVE THIS WHEN DONE
-                if self.scale:
-                    self.y_tilde_train[a][d] = lasso.predict(X_train) + np.mean(y_train)
-                    self.y_tilde_test[a][d] = lasso.predict(X_test) + np.mean(y_train)
-
-                else:
-                    self.y_tilde_train[a][d] = lasso.predict(X_train)
-                    self.y_tilde_test[a][d] = lasso.predict(X_test)
-
-    def analyze(self):
-        """
-        To do here(?): 
-        Find out if we can use sklearn methods, or if we have to define our own. 
-        If we need our own, rewrite the next few lines with definitions of MSE and R^2.
-        """
-        maxdegree = self.maxdegree
-
-        self.MSE_train = {}
-        self.MSE_test = {}
-        self.R2_train = {}
-        self.R2_test = {}
-
-        for a in self.alpha:
-            self.MSE_train[a] = np.empty(maxdegree)
-            self.MSE_test[a] = np.empty(maxdegree)
-            self.R2_train[a] = np.empty(maxdegree)
-            self.R2_test[a] = np.empty(maxdegree)
-
-            for d in range(maxdegree):
-
-
-                self.MSE_train[a][d] = mean_squared_error(self.y_train[d], self.y_tilde_train[a][d])
-                self.MSE_test[a][d] = mean_squared_error(self.y_test[d], self.y_tilde_test[a][d])
-
-                self.R2_train[a][d] = r2_score(self.y_train[d], self.y_tilde_train[a][d])
-                self.R2_test[a][d] = r2_score(self.y_test[d], self.y_tilde_test[a][d])
+    def analyze(self, resampling_type=None):
+        self._analyze(self.alpha, resampling_type)
 
 
 def Franke_function(x: np.ndarray, y: np.ndarray, noise: bool = True) -> np.ndarray:
@@ -369,7 +308,6 @@ def Franke_function(x: np.ndarray, y: np.ndarray, noise: bool = True) -> np.ndar
 
     return Franke
 
-
 def generate_data(n: int, seed: int, multidim: bool = False) -> tuple[np.ndarray]:
     np.random.seed(seed)
     if multidim:
@@ -384,45 +322,48 @@ def generate_data(n: int, seed: int, multidim: bool = False) -> tuple[np.ndarray
         y = np.exp(-x**2) + 1.5 * np.exp(-(x-2)**2) + np.random.normal(0, 0.1, x.shape)
         return x, y
 
-
 def main():
-    n = 8
-    seed = 8
-    test_size = 0.2
-    maxdegree = 4
-    scale = True
-    multidim = True
+    # n = 150
+    # seed = 8
+    # test_size = 0.2
+    # maxdegree = 4
+    # scale = True
+    # multidim = True
 
-    lmbda = [0.0001, 0.001, 0.01, 0.1, 1.0]
-    alpha = [0.1, 0.5, 0.9, 1.5, 3.0]
-    # x = np.ones(n).reshape(-1, 1)
-    # y = x * 2
-    # x, y = generate_data(n, seed, True)
-    # OLS = OrdinaryLeastSquares(x, y, 4, scale = False, multidim=True)
-    # print(OLS.design_matrices[3])
-    
-    fig, axs = plt.subplots(1, 2, subplot_kw={"projection": "3d"})
-    x = np.linspace(0, 1, 50)
-    y = np.linspace(0, 1, 50)
-    X, Y = np.meshgrid(x, y)
-    Z = Franke_function(X, Y, noise=False)
-    surf = axs[0].plot_surface(X, Y, Z, cmap=cm.coolwarm,
-                           linewidth=0, antialiased=False)
-    plt.show()
-    # x, y = generate_data(n, seed, multidim)
+    # # lmbda = [0.0001, 0.001, 0.01, 0.1, 1.0]
+    # # alpha = [0.1, 0.5, 0.9, 1.5, 3.0]
     # # x = np.ones(n).reshape(-1, 1)
     # # y = x * 2
+    # # x, y = generate_data(n, seed, True)
+    # # OLS = OrdinaryLeastSquares(x, y, 4, scale = False, multidim=True)
+    # # print(OLS.design_matrices[3])
+    
+    # fig, axs = plt.subplots(1, 2, subplot_kw={"projection": "3d"})
+    # x = np.linspace(0, 1, 50)
+    # y = np.linspace(0, 1, 50)
+    # X, Y = np.meshgrid(x, y)
+    # Z = Franke_function(X, Y, noise=False)
+    # #surf = axs[0].plot_surface(X, Y, Z, cmap=cm.coolwarm,
+    #                        #linewidth=0, antialiased=False)
+    # #plt.show()
+
+    # print(Z.shape)
+
+    # x, y = generate_data(n, seed, multidim)
+    # # # x = np.ones(n).reshape(-1, 1)
+    # # # y = x * 2
     # OLS = OrdinaryLeastSquares(x, y, maxdegree, scale=False, multidim=multidim, test_size=test_size)
+
+    # print(OLS.design_matrices)
     # OLS.predict()
     # OLS.analyze()
-    # beta = OLS.beta_hat[3]
-    # surf = axs[1].plot_surface(X, Y, OLS.design_matrices[3] @ beta)
-    
+    # beta = OLS.beta_hat[0][3]
 
-    
+    # print((OLS.design_matrices[3] @ beta).shape)
+    #surf = axs[1].plot_surface(X, Y, OLS.design_matrices[3] @ beta)
+    #plt.show()
 
 
-    plt.show()
     # OLS.plot_train_test_and_parameters()
 
     # Ridge = RidgeRegression(lmbda, x, y, maxdegree, scale=scale, multidim=multidim, test_size=test_size)
@@ -434,6 +375,44 @@ def main():
     # Lasso.predict()
     # Lasso.analyze()
     # # Lasso.plot_MSE_R2_beta()
+
+    # Part e): Bias-variance trade-off and resampling techniques -----------------------------------------------------
+    # Test 1: Varying complexity of polynomial model
+    n = 400
+    seed = 8
+    test_size = 0.2
+    n_bootstraps = 120
+    maxdegree = 15
+    scale = True
+    multidim = False
+
+    # Making data set
+    x = np.linspace(-3, 3, n).reshape(-1, 1)
+    y = np.exp(-x**2) + 1.5 * np.exp(-(x-2)**2) + np.random.normal(0, 0.1, x.shape)
+
+    OLS = OrdinaryLeastSquares(x, y, maxdegree, test_size, scale, multidim)
+    OLS.predict()
+    OLS.analyze()
+
+    OLS.plot_train_test_and_parameters()
+
+    # error = np.zeros(maxdegree)
+    # bias = np.zeros(maxdegree)
+    # variance = np.zeros(maxdegree)
+    # polydegree = np.zeros(maxdegree)  
+
+    # OLS = OrdinaryLeastSquares(x, y, maxdegree, scale=scale, multidim=multidim, test_size=test_size)
+    # OLS.predict()
+
+    # for degree in range(maxdegree):
+    #     y_pred = np.empty((OLS.y_test[degree].shape[0], n_bootstraps))
+
+    #     for i in range(n_bootstraps):
+    #         X_, y_ = resample(OLS.X_train[degree], OLS.y_train[degree])
+    #         OLS.X_train["bootstrap"] = X_
+    #         OLS.y_train["bootstrap"] = y_
+
+    #         y_pred[:, i] = make_prediction(X_, y_, X_test).ravel()
 
 
 if __name__ == "__main__":
