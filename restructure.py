@@ -50,6 +50,8 @@ class Model:
         y_test = {}
         for d, X in self.design_matrices.items():
             X_train[d], X_test[d], y_train[d], y_test[d] = train_test_split(X, self.y, test_size=self.test_size)
+
+        print(X_train)
         return X_train, X_test, y_train, y_test
 
     def design_matrix(self, degree) -> np.ndarray:
@@ -146,49 +148,53 @@ class Model:
             plt.tight_layout()
             plt.show()
 
-    def _predict(self, parameter_list, resampling_type=None):
+    def _predict(self, parameter_list, X_training, y_training, X_testing) -> tuple[dict]:
         maxdegree = self.maxdegree
         
-        self.y_tilde_train = {}
-        self.y_tilde_test = {}
-        self.beta_hat = {}
+        y_tilde_train = {}
+        y_tilde_test = {}
+        beta_hat = {}
 
         for p in parameter_list:
-            self.y_tilde_train[p] = {}
-            self.y_tilde_test[p] = {}
-            self.beta_hat[p] = {}
+            y_tilde_train[p] = {}
+            y_tilde_test[p] = {}
+            beta_hat[p] = {}
 
             for d in range(maxdegree):
                 if self.lasso:
                     model = Lasso(alpha=p)
-                    model.fit(self.X_train[d], self.y_train[d])
+                    model.fit(X_training[d], y_training[d])
                 
-                X_train = self.X_train[d]
-                X_test = self.X_test[d]
-                y_train = self.y_train[d]
+                X_train = X_training[d]
+                X_test = X_testing[d]
+                y_train = y_training[d]
 
                 if not self.lasso:
-                    self.beta_hat[p][d] = np.linalg.inv(X_train.T @ X_train + p*np.identity(len(X_train[0]))) @ X_train.T @ y_train
-                    beta_hat = self.beta_hat[p][d]
+                    print("THIS IS d", d, X_train.shape, X_train)
+                    #beta_hat[p][d] = np.linalg.inv(X_train.T @ X_train + p*np.identity(len(X_train))) @ X_train.T @ y_train
+                    beta_hat[p][d] = np.linalg.inv(X_train.T @ X_train) @ X_train.T @ y_train
+                    beta = beta_hat[p][d]
 
                     if self.scale:
-                        self.y_tilde_train[p][d] = X_train @ beta_hat + np.mean(y_train)
-                        self.y_tilde_test[p][d] = X_test @ beta_hat + np.mean(y_train)
+                        y_tilde_train[p][d] = X_train @ beta + np.mean(y_train)
+                        y_tilde_test[p][d] = X_test @ beta + np.mean(y_train)
 
                     else:
-                        self.y_tilde_train[p][d] = X_train @ beta_hat
-                        self.y_tilde_test[p][d] = X_test @ beta_hat
+                        y_tilde_train[p][d] = X_train @ beta
+                        y_tilde_test[p][d] = X_test @ beta
 
                 else:
-                    self.beta_hat[p][d] = model.coef_
+                    beta_hat[p][d] = model.coef_
 
                     if self.scale:
-                        self.y_tilde_train[p][d] = model.predict(X_train) + np.mean(y_train)
-                        self.y_tilde_test[p][d] = model.predict(X_test) + np.mean(y_train)
+                        y_tilde_train[p][d] = model.predict(X_train) + np.mean(y_train)
+                        y_tilde_test[p][d] = model.predict(X_test) + np.mean(y_train)
 
                     else:
-                        self.y_tilde_train[p][d] = model.predict(X_train)
-                        self.y_tilde_test[p][d] = model.predict(X_test)
+                        y_tilde_train[p][d] = model.predict(X_train)
+                        y_tilde_test[p][d] = model.predict(X_test)
+
+        return y_tilde_train, y_tilde_test, beta
 
     def _analyze(self, parameter_list, resampling_type=None):
         """
@@ -233,10 +239,32 @@ class OrdinaryLeastSquares(Model):
         self.colors = ["royalblue", "cornflowerblue", "chocolate", "sandybrown","orchid"]
         self.name = "Ordinary Least Squares"
 
-    def predict(self, resampling_type=None):
+    def predict(self, bootstrap: bool = False, num_bootstraps: int = 0, cross_val: bool = False, num_folds: int = 0):
         parameter_list = [0]
 
-        self._predict(parameter_list, resampling_type)
+        if bootstrap:
+            error = np.zeros(self.maxdegree)
+            bias = np.zeros(self.maxdegree)
+            variance = np.zeros(self.maxdegree)
+            polydegree = np.zeros(self.maxdegree) 
+
+            for d in range(self.maxdegree):
+                y_pred = np.empty((self.y_test[d].shape[0], num_bootstraps))
+
+                for i in range(num_bootstraps):
+                    X_, y_ = resample(self.X_train[d], self.y_train[d])
+
+                    y_pred[0][:, i] = self._predict(parameter_list, X_, y_, self.X_test).ravel()[1]
+            
+                polydegree[d] = d
+                error[d] = np.mean( np.mean((self.y_test[d] - y_pred)**2, axis=1, keepdims=True) )
+                bias[d] = np.mean( (self.y_test[d] - np.mean(y_pred, axis=1, keepdims=True))**2 )
+                variance[d] = np.mean( np.var(y_pred, axis=1, keepdims=True) )    
+
+            return polydegree, error, bias, variance
+
+        else:
+            self.y_tilde_train, self.y_tilde_test, self.beta_hat = self._predict(parameter_list, self.X_train, self.y_train, self.X_test)
 
     def analyze(self, resampling_type=None):
         parameter_list = [0]
@@ -377,43 +405,32 @@ def main():
     # # Lasso.plot_MSE_R2_beta()
 
     # Part e): Bias-variance trade-off and resampling techniques -----------------------------------------------------
+    np.random.seed(8)
+
     # Test 1: Varying complexity of polynomial model
     n = 400
-    seed = 8
     test_size = 0.2
     n_bootstraps = 120
-    maxdegree = 15
+    maxdegree = 6
     scale = True
     multidim = False
 
     # Making data set
     x = np.linspace(-3, 3, n).reshape(-1, 1)
-    y = np.exp(-x**2) + 1.5 * np.exp(-(x-2)**2) + np.random.normal(0, 0.1, x.shape)
+    y = np.exp(-x**2) + 1.5 * np.exp(-(x-2)**2) + np.random.normal(0, 0.1, x.shape) 
 
     OLS = OrdinaryLeastSquares(x, y, maxdegree, test_size, scale, multidim)
     OLS.predict()
-    OLS.analyze()
+    print(OLS.beta_hat[0])
 
-    OLS.plot_train_test_and_parameters()
+    polydegree, error, bias, variance = OLS.predict(bootstrap=True, num_bootstraps=n_bootstraps)
 
-    # error = np.zeros(maxdegree)
-    # bias = np.zeros(maxdegree)
-    # variance = np.zeros(maxdegree)
-    # polydegree = np.zeros(maxdegree)  
-
-    # OLS = OrdinaryLeastSquares(x, y, maxdegree, scale=scale, multidim=multidim, test_size=test_size)
-    # OLS.predict()
-
-    # for degree in range(maxdegree):
-    #     y_pred = np.empty((OLS.y_test[degree].shape[0], n_bootstraps))
-
-    #     for i in range(n_bootstraps):
-    #         X_, y_ = resample(OLS.X_train[degree], OLS.y_train[degree])
-    #         OLS.X_train["bootstrap"] = X_
-    #         OLS.y_train["bootstrap"] = y_
-
-    #         y_pred[:, i] = make_prediction(X_, y_, X_test).ravel()
-
+    plt.plot(polydegree, error, label="Error")
+    plt.plot(polydegree, bias, label="Bias")
+    plt.plot(polydegree, variance, label="Variance")
+    plt.title(f"Bias-variance tradeoff with varying polynomial degree")
+    plt.legend()
+    plt.show()
 
 if __name__ == "__main__":
     main()
