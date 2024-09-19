@@ -51,7 +51,6 @@ class Model:
         for d, X in self.design_matrices.items():
             X_train[d], X_test[d], y_train[d], y_test[d] = train_test_split(X, self.y, test_size=self.test_size)
 
-        print(X_train)
         return X_train, X_test, y_train, y_test
 
     def design_matrix(self, degree) -> np.ndarray:
@@ -98,55 +97,52 @@ class Model:
                     X[:,i] -= np.mean(X[:,i])
             return X
 
-    def plot_train_test_and_parameters(self, param = None):
-            colors = ["royalblue", "cornflowerblue", "chocolate", "sandybrown","orchid"]
-                
-            # Plotting statistical metrics
-            fig, axs = plt.subplots(1, 2, figsize=(16, 9))
-            degrees = np.arange(1, self.maxdegree + 1)
+    def plot_train_test_and_parameters(self, param = 0):
+        colors = ["royalblue", "cornflowerblue", "chocolate", "sandybrown","orchid"]
+            
+        # Plotting statistical metrics
+        fig, axs = plt.subplots(1, 2, figsize=(16, 9))
+        degrees = np.arange(1, self.maxdegree + 1)
 
-            if param is None:
-                MSE_train = self.MSE_train
-                MSE_test = self.MSE_test
-                R2_train = self.R2_train
-                R2_test = self.R2_test
-                beta_hat = self.beta_hat
-            else:
-                MSE_train = self.MSE_train[param]
-                MSE_test = self.MSE_test[param]
-                R2_train = self.R2_train[param]
-                R2_test = self.R2_test[param]
-                beta_hat = self.beta_hat[param]
+        MSE_train = self.MSE_train[param]
+        MSE_test = self.MSE_test[param]
+        R2_train = self.R2_train[param]
+        R2_test = self.R2_test[param]
+        beta_hat = self.beta_hat[param]
 
-            axs[0].plot(degrees, MSE_train, label="MSE of Training Data", color=colors[0], linestyle="dotted", marker="o")
-            axs[0].plot(degrees, MSE_test, label="MSE of Testing Data", color=colors[1], linestyle="dashed", marker="o")
-            axs[0].plot(degrees, R2_train, label=r"$R^2$ Score of Training Data", color=colors[2], linestyle="dotted", marker="o")
-            axs[0].plot(degrees, R2_test, label=r"$R^2$ Score of Testing Data", color=colors[3], linestyle="dashed", marker="o")
-            axs[0].set_title("Statistical Metrics")
-            axs[0].set_xlabel("Degree of Polynomial Model")
-            axs[0].xaxis.set_major_locator(MultipleLocator(1))
-            axs[0].set_ylabel("Value")
-            axs[0].legend()
-            axs[0].grid(True)
+        axs[0].plot(degrees, MSE_train, label="MSE of Training Data", color=colors[0], linestyle="dotted", marker="o")
+        axs[0].plot(degrees, MSE_test, label="MSE of Testing Data", color=colors[1], linestyle="dashed", marker="o")
+        axs[0].plot(degrees, R2_train, label=r"$R^2$ Score of Training Data", color=colors[2], linestyle="dotted", marker="o")
+        axs[0].plot(degrees, R2_test, label=r"$R^2$ Score of Testing Data", color=colors[3], linestyle="dashed", marker="o")
+        axs[0].set_title("Statistical Metrics")
+        axs[0].set_xlabel("Degree of Polynomial Model")
+        axs[0].xaxis.set_major_locator(MultipleLocator(1))
+        axs[0].set_ylabel("Value")
+        axs[0].legend()
+        axs[0].grid(True)
 
-            # Plotting optimal parameters
-            axs[1].scatter(degrees, beta_hat, color=colors[4])
+        # Plotting optimal parameters
+        print(degrees)
+        print(beta_hat[param])
+        axs[1].scatter(degrees, beta_hat[param], color=colors[4])
+        
+        # LOOK HERE!!! ISSUE WITH RETRIEVING DATA FROM BETA_HAT AND PUTTING IN SCATTER PLOT!! LOOK HERE!!!!!!!!!!
 
-            """
-            This labeling looks a bit wonky. Fix later if necessary.
-            """
-            for degree, b in zip(degrees, beta_hat):
-                axs[1].annotate(fr"\beta_{degree}"+f" = {b:.3f}", (degree, b), textcoords="offset points", xytext=(60, 7), ha='right')
+        """
+        This labeling looks a bit wonky. Fix later if necessary.
+        """
+        for degree, b in zip(degrees, beta_hat):
+            axs[1].annotate(fr"\beta_{degree}"+f" = {b:.3f}", (degree, b), textcoords="offset points", xytext=(60, 7), ha='right')
 
-            axs[1].set_title("Optimal Parameters")
-            axs[1].set_xlabel("Degree of Polynomial Model")
-            axs[1].xaxis.set_major_locator(MultipleLocator(1))
-            axs[1].set_ylabel("Value")
-            axs[1].grid(True)
+        axs[1].set_title("Optimal Parameters")
+        axs[1].set_xlabel("Degree of Polynomial Model")
+        axs[1].xaxis.set_major_locator(MultipleLocator(1))
+        axs[1].set_ylabel("Value")
+        axs[1].grid(True)
 
-            fig.suptitle(self.name)
-            plt.tight_layout()
-            plt.show()
+        fig.suptitle(self.name)
+        plt.tight_layout()
+        plt.show()
 
     def _predict(self, parameter_list, X_training, y_training, X_testing) -> tuple[dict]:
         maxdegree = self.maxdegree
@@ -155,6 +151,7 @@ class Model:
         y_tilde_test = {}
         beta_hat = {}
 
+        
         for p in parameter_list:
             y_tilde_train[p] = {}
             y_tilde_test[p] = {}
@@ -170,9 +167,7 @@ class Model:
                 y_train = y_training[d]
 
                 if not self.lasso:
-                    print("THIS IS d", d, X_train.shape, X_train)
-                    #beta_hat[p][d] = np.linalg.inv(X_train.T @ X_train + p*np.identity(len(X_train))) @ X_train.T @ y_train
-                    beta_hat[p][d] = np.linalg.inv(X_train.T @ X_train) @ X_train.T @ y_train
+                    beta_hat[p][d] = np.linalg.inv(X_train.T @ X_train + p*np.identity(d+1)) @ X_train.T @ y_train
                     beta = beta_hat[p][d]
 
                     if self.scale:
@@ -194,7 +189,7 @@ class Model:
                         y_tilde_train[p][d] = model.predict(X_train)
                         y_tilde_test[p][d] = model.predict(X_test)
 
-        return y_tilde_train, y_tilde_test, beta
+        return y_tilde_train, y_tilde_test, beta_hat
 
     def _analyze(self, parameter_list, resampling_type=None):
         """
@@ -421,16 +416,18 @@ def main():
 
     OLS = OrdinaryLeastSquares(x, y, maxdegree, test_size, scale, multidim)
     OLS.predict()
-    print(OLS.beta_hat[0])
+    OLS.analyze()
 
-    polydegree, error, bias, variance = OLS.predict(bootstrap=True, num_bootstraps=n_bootstraps)
+    OLS.plot_train_test_and_parameters(0)
 
-    plt.plot(polydegree, error, label="Error")
-    plt.plot(polydegree, bias, label="Bias")
-    plt.plot(polydegree, variance, label="Variance")
-    plt.title(f"Bias-variance tradeoff with varying polynomial degree")
-    plt.legend()
-    plt.show()
+    # polydegree, error, bias, variance = OLS.predict(bootstrap=True, num_bootstraps=n_bootstraps)
+
+    # plt.plot(polydegree, error, label="Error")
+    # plt.plot(polydegree, bias, label="Bias")
+    # plt.plot(polydegree, variance, label="Variance")
+    # plt.title(f"Bias-variance tradeoff with varying polynomial degree")
+    # plt.legend()
+    # plt.show()
 
 if __name__ == "__main__":
     main()
