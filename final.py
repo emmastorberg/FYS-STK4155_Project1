@@ -1,10 +1,17 @@
+from collections.abc import Iterable
+
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import Lasso
 from sklearn.preprocessing import scale
 import matplotlib.pyplot as plt
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, mean_squared_error
 from matplotlib.ticker import MultipleLocator
+from sklearn.model_selection import KFold
+from sklearn.linear_model import Ridge
+from sklearn.model_selection import cross_val_score
+from sklearn.preprocessing import PolynomialFeatures
+
 
 
 class Model:
@@ -31,13 +38,13 @@ class Model:
         self.design_matrices = self._generate_design_matrices()
         self.X_train, self.X_test, self.y_train, self.y_test = self._split_train_test_data()
 
-        self.beta_hat = dict()
-        self.y_tilde_train = dict()
-        self.y_tilde_test = dict()
-        self.MSE_train = dict()
-        self.MSE_test = dict()
-        self.R2_score_train = dict()
-        self.R2_score_test = dict()
+        self.beta_hat = {}
+        self.y_tilde_train = {}
+        self.y_tilde_test = {}
+        self.MSE_train = {}
+        self.MSE_test = {}
+        self.R2_score_train = {}
+        self.R2_score_test = {}
         self.param_label = None
 
     def _generate_design_matrices(self):
@@ -122,7 +129,8 @@ class Model:
             self.beta_hat[param] = {}
 
             for degree in self.degrees:
-                beta_hat = self._compute_optimal_beta(degree, param)
+                X_train, y_train = self.X_train[degree], self.y_train[degree]
+                beta_hat = self._compute_optimal_beta(X_train, y_train, param)
                 y_tilde_train = self.X_train[degree] @ beta_hat
                 y_tilde_test = self.X_test[degree] @ beta_hat
                 if self.scale:
@@ -133,10 +141,7 @@ class Model:
                 self.beta_hat[param][degree] = beta_hat
 
     def plot_MSE_and_R2_scores(self, params=None):
-        if params is None:
-            params = self.params
-        elif not isinstance(params, list):
-            params = [params]
+        params = self._get_params(params)
         for param in params:
             fig, ax = plt.subplots()
             ax.plot(self.degrees, self.MSE_train[param], label="MSE of Training Data", linestyle="dotted", marker="o")
@@ -152,12 +157,17 @@ class Model:
             if self.param_label is not None:
                 fig.suptitle(f"{self.param_label} = {param}")
             plt.show()
-    
-    def plot_optimal_betas(self, params=None):
+
+    def _get_params(self, params):
+        """Returns self.params if params is None, and make sure params is iterable."""
         if params is None:
             params = self.params
-        elif not isinstance(params, list):
+        elif not isinstance(params, Iterable):
             params = [params]
+        return params
+    
+    def plot_optimal_betas(self, params=None):
+        params = self._get_params(params)
         for param in params:
             fig, ax = plt.subplots()
             for degree, beta in self.beta_hat[param].items():
@@ -171,6 +181,66 @@ class Model:
             if self.param_label is not None:
                 fig.suptitle(f"{self.param_label} = {param}")
             plt.show()
+
+    def kfold_cross_validation(self, k, degree, param):
+        X,Y = self.design_matrices[degree], self.Y
+        kfold = KFold(n_splits=k)
+        scores_kfold = np.empty(k)
+        i = 0
+        for train_inds, test_inds in kfold.split(X):
+            X_train = X[train_inds]
+            y_train = Y[train_inds]
+
+            X_test = X[test_inds]
+            y_test = Y[test_inds]
+
+            if self.scale:
+                X_train = scale(X_train, with_std=False)
+                X_test = scale(X_test, with_std=False)
+
+            beta_hat = self._compute_optimal_beta(X_train, y_train, param)
+            y_pred_test = X_test @ beta_hat
+
+            if self.scale:
+                y_pred_test += np.mean(y_test)
+
+            MSE_test = self._calculate_MSE(y_test, y_pred_test)
+            scores_kfold[i] = MSE_test
+            i += 1
+        return np.mean(scores_kfold)
+    
+    def plot_kfold_per_degree(self, k, params=None):
+        params = self._get_params(params)
+        for param in params:
+            fig, ax = plt.subplots()
+            estimated_MSE_kfold = np.empty(self.maxdegree)
+            for degree in self.degrees:
+                estimated_MSE_kfold[degree-1] = self.kfold_cross_validation(k, degree, param)
+            ax.plot(self.degrees, estimated_MSE_kfold)
+            ax.set_title(f"K-fold Cross Validation of {self.name} Method")
+            ax.set_xlabel("Degree of Polynomial Model")
+            ax.xaxis.set_major_locator(MultipleLocator(1))
+            ax.set_ylabel("MSE")
+            if self.param_label is not None:
+                fig.suptitle(f"{self.param_label} = {param}")
+            plt.show()
+
+    def plot_kfold_per_param(self, k, degree=None, params=None):
+        if degree is None:
+            degree = self.maxdegree
+        if self.name == "Ordinary Least Squares":
+            return # raise an error?
+        fig, ax = plt.subplots()
+        params = self._get_params(params)
+        estimated_MSE_kfold = np.empty(len(params))
+        for i, param in enumerate(params):
+            estimated_MSE_kfold[i] = self.kfold_cross_validation(k, degree, param)
+        ax.plot(np.log10(params), estimated_MSE_kfold, label="KFold")
+        ax.legend()
+        ax.set_title(f"K-fold Cross Validation of {self.name} Method")
+        ax.set_xlabel(self.param_label)
+        ax.set_ylabel("MSE")
+        plt.show()
 
 
 class OrdinaryLeastSquares(Model):
@@ -190,8 +260,7 @@ class OrdinaryLeastSquares(Model):
         self.colors = ["royalblue", "cornflowerblue", "chocolate", "sandybrown","orchid"]
         self.name = "Ordinary Least Squares"
 
-    def _compute_optimal_beta(self, degree, param=None):
-        X_train, y_train = self.X_train[degree], self.y_train[degree]
+    def _compute_optimal_beta(self, X_train, y_train, param=None):
         beta_hat = np.linalg.inv(X_train.T @ X_train) @ X_train.T @ y_train
         return beta_hat
     
@@ -216,8 +285,7 @@ class RidgeRegression(Model):
         self.name = "Ridge Regression"
         self.param_label = r"$\lambda$"
 
-    def _compute_optimal_beta(self, degree, lmbda):
-        X_train, y_train = self.X_train[degree], self.y_train[degree]
+    def _compute_optimal_beta(self, X_train, y_train, lmbda):
         p = len(X_train[0])
         beta_hat = np.linalg.inv(X_train.T @ X_train + lmbda * np.eye(p)) @ X_train.T @ y_train
         return beta_hat
@@ -243,8 +311,7 @@ class LassoRegression(Model):
         self.name = "Lasso Regression"
         self.param_label = r"$\alpha$"
 
-    def _compute_optimal_beta(self, degree, alpha):
-        X_train, y_train = self.X_train[degree], self.y_train[degree]
+    def _compute_optimal_beta(self, X_train, y_train, alpha):
         lasso = Lasso(alpha=alpha, fit_intercept=False)
         lasso.fit(X_train, y_train)
         beta_hat = lasso.coef_
@@ -287,7 +354,7 @@ def main():
     n = 100
     seed = 8
     test_size = 0.2
-    maxdegree = 5
+    maxdegree = 6
     scale = True
     multidim = True
 
@@ -302,6 +369,7 @@ def main():
     OLS.calculate_R2_across_degrees()
     OLS.plot_MSE_and_R2_scores()
     OLS.plot_optimal_betas()
+    OLS.plot_kfold_per_degree(5)
 
     Ridge = RidgeRegression(X, Y, maxdegree, lmbda, scale=scale, multidim=multidim, test_size=test_size)
     Ridge.train_all_models()
@@ -309,6 +377,8 @@ def main():
     Ridge.calculate_R2_across_degrees()
     Ridge.plot_MSE_and_R2_scores(0.1)
     Ridge.plot_optimal_betas([0.001, 1.0])
+    Ridge.plot_kfold_per_degree(5)
+    Ridge.plot_kfold_per_param(5)
     # Ridge.MSE_per_lmbda(10)
 
     Lasso = LassoRegression(X, Y, maxdegree, alpha, scale=scale, multidim=multidim, test_size=test_size)
@@ -317,6 +387,8 @@ def main():
     Lasso.calculate_R2_across_degrees()
     Lasso.plot_MSE_and_R2_scores([3.0, 0.1])
     Lasso.plot_optimal_betas(0.5)
+    Lasso.plot_kfold_per_degree(5)
+    Lasso.plot_kfold_per_param(5)
     # Lasso.MSE_per_alpha(10)
     
 
