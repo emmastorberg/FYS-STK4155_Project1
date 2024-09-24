@@ -11,7 +11,7 @@ from sklearn.model_selection import KFold
 from sklearn.linear_model import Ridge
 from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import PolynomialFeatures
-
+from sklearn.utils import resample
 
 
 class Model:
@@ -28,7 +28,7 @@ class Model:
         ) -> None:
         # May have X, Y, Z when all is multivairate
         self.X = X
-        self.Y = Y.flatten()
+        self.Y = Y.flatten().reshape(-1,1)
         self.maxdegree = maxdegree
         self.degrees = np.arange(1, maxdegree + 1)
         self.params = params
@@ -52,18 +52,6 @@ class Model:
         for degree in self.degrees:
             design_matrices[degree] = self._create_design_matrix(degree=degree)
         return design_matrices
-
-    def _split_train_test_data(self):
-        X_train = {}
-        X_test = {}
-        y_train = {}
-        y_test = {}
-        for d, X in self.design_matrices.items():
-            X_train[d], X_test[d], y_train[d], y_test[d] = train_test_split(X, self.Y, test_size=self.test_size)
-            if self.scale:
-                X_train[d] = scale(X_train[d], with_std=False)
-                X_test[d] = scale(X_test[d], with_std=False)
-        return X_train, X_test, y_train, y_test
 
     def _create_design_matrix(self, degree) -> np.ndarray:
         if self.multidim:
@@ -92,6 +80,18 @@ class Model:
             for i in range(degree):
                 X[:,i] = self.X[:,0]**(i + 1)
             return X
+
+    def _split_train_test_data(self):
+        X_train = {}
+        X_test = {}
+        y_train = {}
+        y_test = {}
+        for d, X in self.design_matrices.items():
+            X_train[d], X_test[d], y_train[d], y_test[d] = train_test_split(X, self.Y, test_size=self.test_size)
+            if self.scale:
+                X_train[d] = scale(X_train[d], with_std=False)
+                X_test[d] = scale(X_test[d], with_std=False)
+        return X_train, X_test, y_train, y_test
 
     def _calculate_MSE(self, y, y_tilde):
         return np.sum((y - y_tilde)**2) / len(y)
@@ -181,6 +181,69 @@ class Model:
             if self.param_label is not None:
                 fig.suptitle(f"{self.param_label} = {param}")
             plt.show()
+
+    def bootstrap_resampling(self, num_bootstraps=100, plot=True):
+        """
+        Do a bias-variance analysis as a function of polynomial degree and plot if parameter plot == True.
+        """
+        error = np.zeros(self.maxdegree)
+        bias = np.zeros(self.maxdegree)
+        variance = np.zeros(self.maxdegree)
+        polydegree = np.zeros(self.maxdegree)
+
+        X_train, X_test, y_train, y_test = self._split_train_test_data()
+
+        for degree in self.degrees:
+
+            y_pred = np.empty((y_test[degree].shape[0], num_bootstraps))
+
+            for i in range(num_bootstraps):
+                X_, y_ = resample(X_train[degree], y_train[degree])
+
+                # Evaluating the new model on the same test data every time
+                beta_hat = self._compute_optimal_beta(X_, y_)
+                y_tilde = X_test[degree] @ beta_hat + np.mean(y_)
+                y_pred[:, i] = y_tilde.ravel()
+
+            error[degree-1] = np.mean(np.mean((y_test[degree] - y_pred)**2, axis=1, keepdims=True))
+            bias[degree-1] = np.mean((y_test[degree] - np.mean(y_pred, axis=1, keepdims=True))**2)
+            variance[degree-1] = np.mean(np.var(y_pred, axis=1, keepdims=True))
+
+        if plot:
+            self._plot_error_bias_variance(error, bias, variance, self.degrees, "complexity of polynomial model")
+        else:
+            return error, bias, variance
+
+    def _plot_error_bias_variance(self, error, bias, variance, functionof, titlestring, y_limit=False):
+        plt.plot(functionof, error, label="Error")
+        plt.plot(functionof, bias, label="Bias")
+        plt.plot(functionof, variance, label="Variance")
+        plt.title(f"Bias-variance tradeoff with varying {titlestring}")
+        if y_limit:
+            plt.ylim(top=1.5)
+        plt.legend()
+        plt.show()
+
+    def plot_bootstrap_per_degree(self, num_bootstraps):
+        # More code here...
+
+        # error, bias, variance = self.bootstrap_resampling(...)
+        # self._plot_error_bias_variance(error, bias, variance, self.degrees, "complexity of polynomial model")
+        raise NotImplementedError
+
+    def plot_bootstrap_per_datasize(self, num_bootstraps):
+        # More code here...
+
+        # error, bias, variance = self.bootstrap_resampling(...)
+        # self._plot_error_bias_variance(error, bias, variance, self.degrees, "size of data set")
+        raise NotImplementedError
+
+    def plot_bootstrap_per_numbootstrap(self, num_bootstraps):
+        # More code here...
+
+        # error, bias, variance = self.bootstrap_resampling(...)
+        # self._plot_error_bias_variance(error, bias, variance, self.degrees, "number of bootstrap resamplings")
+        raise NotImplementedError
 
     def kfold_cross_validation(self, k, degree, param):
         X,Y = self.design_matrices[degree], self.Y
@@ -370,6 +433,9 @@ def main():
     OLS.plot_MSE_and_R2_scores()
     OLS.plot_optimal_betas()
     OLS.plot_kfold_per_degree(5)
+
+    # Bias-variance analysis of OLS with bootstrap:
+    OLS.bootstrap_resampling()
 
     Ridge = RidgeRegression(X, Y, maxdegree, lmbda, scale=scale, multidim=multidim, test_size=test_size)
     Ridge.train_all_models()
