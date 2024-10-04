@@ -1,3 +1,5 @@
+from collections.abc import Iterable
+
 import numpy as np
 from sklearn.model_selection import KFold
 from imageio.v2 import imread
@@ -5,7 +7,6 @@ import pandas as pd
 from sklearn.utils import resample
 
 from LinearRegression import BaseModel, OrdinaryLeastSquares, RidgeRegression, LassoRegression
-from plotroutines import *
 
 
 class Results:
@@ -322,11 +323,13 @@ def generate_data(n: int, seed: int | None = None, multidim: bool = False, noise
         x1 = np.linspace(0, 1, n)
         x2 = np.linspace(0, 1, n)
         X1, X2 = np.meshgrid(x1, x2)
-        X1 = X1.flatten().reshape(-1, 1)
-        X2 = X2.flatten().reshape(-1, 1)
         Y = Franke_function(X1, X2, noise)
-        Y = Y.flatten().reshape(-1, 1)
-        return (X1, X2), Y
+
+        x1 = X1.flatten().reshape(-1, 1)
+        x2 = X2.flatten().reshape(-1, 1)
+        y = Y.flatten().reshape(-1, 1)
+
+        return (x1, x2), y
 
     else:
         x = np.linspace(-3, 3, n).reshape(-1, 1)
@@ -337,6 +340,20 @@ def generate_data(n: int, seed: int | None = None, multidim: bool = False, noise
         )
         return x, y
     
+    
+def generate_terrain_data(n, start, filename="datasets/SRTM_data_Norway_1.tif"):
+    x1 = np.linspace(0, 1, n)
+    x2 = np.linspace(0, 1, n)
+    X1, X2 = np.meshgrid(x1, x2)
+
+    terrain = imread(filename)
+    Y  = terrain[start : start+n, start : start+n]
+
+    x1 = X1.flatten().reshape(-1, 1)
+    x2 = X2.flatten().reshape(-1, 1)
+    y = Y.flatten().reshape(-1, 1)
+
+    return (x1, x2), y
 
 
 if __name__ == "__main__":
@@ -376,28 +393,28 @@ if __name__ == "__main__":
 
 
     # PLOT TERRAIN
-    ols = model(maxdegree, multidim=True)
-    X = ols.create_design_matrix((x1, x2))
-    X_train, X_test, y_train, y_test = ols.split_test_train(X, y)
-    ols.fit(X_train, y_train)
-    X_train = ols.transform(X_train)
-    X_test = ols.transform(X_test)
-    ols.train(X_train, y_train)
-    y_tilde = ols.predict(ols.transform(X))
+    # ols = model(maxdegree, multidim=True)
+    # X = ols.create_design_matrix((x1, x2))
+    # X_train, X_test, y_train, y_test = ols.split_test_train(X, y)
+    # ols.fit(X_train, y_train)
+    # X_train = ols.transform(X_train)
+    # X_test = ols.transform(X_test)
+    # ols.train(X_train, y_train)
+    # y_tilde = ols.predict(ols.transform(X))
 
-    fig, axs = plt.subplots(subplot_kw={"projection": "3d"})
-    axs.plot_surface(X1, X2, Y, cmap=cm.gist_earth, label="terrain")
-    axs.plot_surface(X1, X2, y_tilde.reshape(n, n), color="blue", label="prediction")
-    plt.show()
+    # fig, axs = plt.subplots(subplot_kw={"projection": "3d"})
+    # axs.plot_surface(X1, X2, Y, cmap=cm.gist_earth, label="terrain")
+    # axs.plot_surface(X1, X2, y_tilde.reshape(n, n), color="blue", label="prediction")
+    # # plt.show()
 
 
-    # PLOT MSE AND R2
-    results = Results(model, (x1, x2), y, maxdegree, params=params, multidim=multidim, with_std=True)
-    results.train_and_predict_all_models()
-    results.calculate_MSE_across_degrees()
-    results.calculate_R2_across_degrees()
-    plot_MSE_and_R2_scores(results)
-    plot_optimal_betas(results)
+    # # PLOT MSE AND R2
+    # results = Results(model, (x1, x2), y, maxdegree, params=params, multidim=multidim, with_std=True)
+    # results.train_and_predict_all_models()
+    # results.calculate_MSE_across_degrees()
+    # results.calculate_R2_across_degrees()
+    # plot_MSE_and_R2_scores(results)
+    # plot_optimal_betas(results)
 
     # PLOT FRANKE
     # x, y, = generate_data(n, seed, multidim, noise=False)

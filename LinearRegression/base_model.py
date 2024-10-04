@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.model_selection import train_test_split, KFold
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 
 class BaseModel:
@@ -93,7 +93,7 @@ class BaseModel:
             have a mean of 0 and a standard deviation of 1.
         """
         self.scale = True
-        self.scaler = StandardScaler(with_std=with_std)
+        self.scaler = MinMaxScaler()
         self.scaler.fit(X_train)
         self._y_train_mean = np.mean(y_train)
 
