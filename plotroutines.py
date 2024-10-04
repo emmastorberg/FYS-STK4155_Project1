@@ -5,8 +5,89 @@ from matplotlib import cm
 import numpy as np
 from matplotlib.ticker import MultipleLocator
 import seaborn as sns
+from imageio.v2 import imread
+import cmasher as cmr
 
-# from final import Model, OrdinaryLeastSquares, RidgeRegression, LassoRegression
+import results
+
+# plt.rcParams.update({
+#     "text.usetex": True,                            # Use LaTeX for all text
+#     "font.family": "serif",                         # Use a serif font
+#     "font.serif": ["Computer Modern"],              # Use the Computer Modern font
+#     "text.latex.preamble": r"\usepackage{amsmath}"  # If you want to include additional LaTeX packages
+# })
+
+
+def plot_Franke_function():
+    x = np.linspace(0, 1, 100)
+    y = np.linspace(0, 1, 100)
+    X, Y = np.meshgrid(x, y)
+    Z = results.Franke_function(X, Y, noise=False)
+    Z_noise = results.Franke_function(X, Y, noise=True)
+
+    fig, ax0 = plt.subplots(subplot_kw={"projection": "3d"}, figsize=(5,5))
+    ax0.plot_surface(X, Y, Z, cmap=cm.coolwarm, antialiased=False)
+    ax0.set_zlim(0, 1.05)
+    ax0.xaxis.set_major_locator(MultipleLocator(0.5))
+    ax0.yaxis.set_major_locator(MultipleLocator(0.5))
+    ax0.zaxis.set_major_locator(MultipleLocator(0.5))
+    plt.savefig("figures/Figure1a.pdf")
+
+    fig, ax1 = plt.subplots(subplot_kw={"projection": "3d"}, figsize=(5,5))
+    ax1.plot_surface(X, Y, Z_noise, cmap=cm.coolwarm, antialiased=False)
+    ax1.set_zlim(0, 1.05)
+    ax1.xaxis.set_major_locator(MultipleLocator(0.5))
+    ax1.yaxis.set_major_locator(MultipleLocator(0.5))
+    ax1.zaxis.set_major_locator(MultipleLocator(0.5))
+    plt.savefig("figures/Figure1b.pdf")
+
+
+def plot_terrain(n: int, start: int = 0, filename="datasets/SRTM_data_Norway_1.tif"):
+    x = np.linspace(0, 1, n)
+    y = np.linspace(0, 1, n)
+    X, Y = np.meshgrid(x, y)
+
+    terrain = imread(filename)
+    section = terrain[start : start+n, start : start+n]
+
+    fig, axs = plt.subplots(subplot_kw={"projection": "3d"}, figsize=(5,5))
+    axs.plot_surface(X, Y, section, cmap=cm.gist_earth, label="terrain")
+
+    axs.set_xticks([])
+    axs.set_yticks([])
+
+    axs.view_init(elev=27, azim=37, roll=0)
+
+    plt.savefig("figures/Figure2.pdf")
+
+
+def plot_mse_polydegree_OLS(res_instance_F, res_instance_T):
+    # Configure Matplotlib to use LaTeX
+    param = None
+    degrees = res_instance_F.degrees
+    mse_train_F = res_instance_F.mse_train[param]
+    mse_test_F = res_instance_F.mse_test[param]
+    mse_train_T = res_instance_T.mse_train[param]
+    mse_test_T = res_instance_T.mse_test[param]
+
+    sns.set_theme()
+    fig, axs = plt.subplots(1, 2)
+
+    axs[0].plot(degrees, mse_train_F, label="Training data", linestyle="solid", marker="o", color="royalblue")
+    axs[0].plot(degrees, mse_test_F, label="Testing data", linestyle="dashed", marker="o", color="royalblue")
+    axs[0].xaxis.set_major_locator(MultipleLocator(1))
+
+    axs[1].plot(degrees, mse_train_T, label="Training data", linestyle="solid", marker="o", color="royalblue")
+    axs[1].plot(degrees, mse_test_T, label="Testing data", linestyle="dashed", marker="o", color="royalblue")
+    axs[1].xaxis.set_major_locator(MultipleLocator(1))
+
+    axs[0].set_title(r"$\text{Franke Function}$")#, fontname="Modern")
+    axs[1].set_title(r"$\text{Terrain Data}$")#, fontname="Modern")
+    axs[0].legend()
+    axs[1].legend()
+
+    plt.show()
+    
 
 
 def plot_error_bias_variance(
@@ -204,3 +285,8 @@ def plot_bootstrap_per_numbootstrap(instance, num_bootstraps):
     # error, bias, variance = instance.bootstrap_resampling(...)
     # instance._plot_error_bias_variance(error, bias, variance, instance.degrees, "number of bootstrap resamplings")
     raise NotImplementedError
+
+
+if __name__ == "__main__":
+    plot_Franke_function()
+    plot_terrain(50, 700)
