@@ -5,6 +5,7 @@ from sklearn.model_selection import KFold
 from imageio.v2 import imread
 import pandas as pd
 from sklearn.utils import resample
+from sklearn.metrics import mean_squared_error
 
 from LinearRegression import BaseModel, OrdinaryLeastSquares, RidgeRegression, LassoRegression
 
@@ -89,7 +90,7 @@ class Results:
             y_tilde = np.array(y_tilde)
         except:
             raise TypeError("input must be iterable")
-        return np.sum((y - y_tilde) ** 2) / len(y)
+        return np.sum((y - y_tilde)**2) / len(y)
 
     @staticmethod
     def r2_score(y: np.ndarray, y_tilde: np.ndarray) -> float:
@@ -110,14 +111,6 @@ class Results:
             raise TypeError("input must be iterable")
         R2_score = 1 - (np.sum((y - y_tilde) ** 2) / np.sum((y - np.mean(y))**2))
         return R2_score
-    
-    @staticmethod
-    def bias(y: np.ndarray, y_tilde: np.ndarray) -> float:
-        return np.mean(np.mean(y - y_tilde, axis=1, keepdims=True) ** 2)
-    
-    @staticmethod
-    def variance(y_tilde: np.ndarray) -> float:
-        return np.mean(np.var(y_tilde, axis=1, keepdims=True))
 
     def calculate_MSE_across_degrees(self) -> None:
         """Fills dictionaries of MSE from training and 
@@ -226,7 +219,7 @@ class Results:
         df = pd.DataFrame(cv_grid)
         return df
     
-    def bootstrap_resampling(self, num_bootstraps: int = 100, param=None) -> None | tuple[np.ndarray]:
+    def bootstrap_resampling(self, num_bootstraps: int = 100, param=None) -> tuple[np.ndarray]:
         """Performs bias-variance analysis of dataset using bootstrap resampling.
 
         Args:
@@ -242,27 +235,27 @@ class Results:
         for degree in self.degrees:
 
             X = self.X[degree]
-            linreg = model(degree, self.multidim, param)
-            X_train, X_test, y_train, y_test = model.split_test_train(X, self.y, test_size=self.test_size)
+            linreg = self.model(degree, self.multidim, param)
+            X_train, X_test, y_train, y_test = linreg.split_test_train(X, self.y, test_size=self.test_size)
 
             if self.scale:
-                linreg.fit(X_train)
+                linreg.fit(X_train, y_train)
                 X_train = linreg.transform(X_train)
                 X_test = linreg.transform(X_test)
 
             y_pred = np.zeros((y_test.shape[0], num_bootstraps))
 
             for i in range(num_bootstraps):
-                X_, y_ = resample(X_train[degree], y_train[degree])
+                X_, y_ = resample(X_train, y_train)
                 linreg.train(X_, y_)
                 y_tilde = linreg.predict(X_test)
                 y_pred[:, i] = y_tilde.ravel()
 
-            error[degree - 1] = self.mean_squared_error(y_test, y_pred)
-            bias[degree - 1] = self.bias(y_test, y_pred)
-            variance[degree - 1] = self.variance(y_pred)
+            error[degree - 1] = np.mean(np.mean((y_test - y_pred)**2, axis=1, keepdims=True))
+            bias[degree - 1] = np.mean((y_test - np.mean(y_pred, axis=1, keepdims=True))**2)
+            variance[degree - 1] = np.mean(np.var(y_pred, axis=1, keepdims=True))
 
-            return error, bias, variance
+        return error, bias, variance
         
     def print_correlation_matrix(self, degree: int | None = None) -> None:
         """
@@ -279,8 +272,10 @@ class Results:
         X = self.X[degree]
         Xpd = pd.DataFrame(X)
         Xpd = Xpd - Xpd.mean()
+        print(Xpd)
         correlation_matrix = Xpd.corr()
-        print(correlation_matrix)
+        formatted_matrix = correlation_matrix.round(2)
+        print(formatted_matrix)
 
 
 def Franke_function(x: np.ndarray, y: np.ndarray, noise: bool = True) -> np.ndarray:
@@ -302,11 +297,14 @@ def Franke_function(x: np.ndarray, y: np.ndarray, noise: bool = True) -> np.ndar
     Franke = term1 + term2 + term3 + term4
 
     if noise:
+        state = np.random.get_state()
         Franke += np.random.normal(0, 0.1, x.shape)
+        np.random.set_state(state)
 
     return Franke
 
-def generate_data(n: int, seed: int | None = None, multidim: bool = False, noise: bool = True) -> tuple[np.ndarray]:
+
+def generate_data_Franke(n: int, seed: int | None = None, multidim: bool = False, noise: bool = True) -> tuple[np.ndarray]:
     """Generates noisy data to be given to our model. Can give multivariate or univariate data.
 
     Args:
@@ -341,97 +339,16 @@ def generate_data(n: int, seed: int | None = None, multidim: bool = False, noise
         return x, y
     
     
-def generate_terrain_data(n, start, filename="datasets/SRTM_data_Norway_1.tif"):
+def generate_data_terrain(n, start, step=1, filename="datasets/SRTM_data_Norway_1.tif"):
     x1 = np.linspace(0, 1, n)
     x2 = np.linspace(0, 1, n)
     X1, X2 = np.meshgrid(x1, x2)
 
     terrain = imread(filename)
-    Y  = terrain[start : start+n, start : start+n]
+    Y  = terrain[start : start + (n * step) : step, start : start+ (n * step) : step]
 
     x1 = X1.flatten().reshape(-1, 1)
     x2 = X2.flatten().reshape(-1, 1)
     y = Y.flatten().reshape(-1, 1)
 
     return (x1, x2), y
-
-
-if __name__ == "__main__":
-
-
-    maxdegree = 8
-    multidim = True
-    scale = True
-    model = OrdinaryLeastSquares
-
-    n = 41
-    seed = 8
-    # params = np.logspace(-4, 4, 9)
-    params = None
-
-    # results = Results(model, (x1, x2), y, maxdegree, params=params, multidim=multidim, with_std=False)
-    # results.train_and_predict_all_models()
-    # results.calculate_MSE_across_degrees()
-    # results.calculate_R2_across_degrees()
-    # # plot_MSE_and_R2_scores(results)
-    # # plot_optimal_betas(results)
-    # df = results.grid_search()
-    # plot_CV_table(results, df)
-    terrain1 = imread('datasets/SRTM_data_Norway_1.tif')
-    x1 = np.linspace(0, 1, n)
-    x2 = np.linspace(0, 1, n)
-    X1, X2 = np.meshgrid(x1, x2)
-    Y = terrain1[:n,:n]
-    # fig, axs = plt.subplots(subplot_kw={"projection": "3d"})
-    # axs.plot_surface(X1, X2, Y)
-    # plt.show()
-
-    x1 = X1.flatten().reshape(-1, 1)
-    x2 = X2.flatten().reshape(-1, 1)
-    y = Y.flatten().reshape(-1, 1)
-
-
-
-    # PLOT TERRAIN
-    # ols = model(maxdegree, multidim=True)
-    # X = ols.create_design_matrix((x1, x2))
-    # X_train, X_test, y_train, y_test = ols.split_test_train(X, y)
-    # ols.fit(X_train, y_train)
-    # X_train = ols.transform(X_train)
-    # X_test = ols.transform(X_test)
-    # ols.train(X_train, y_train)
-    # y_tilde = ols.predict(ols.transform(X))
-
-    # fig, axs = plt.subplots(subplot_kw={"projection": "3d"})
-    # axs.plot_surface(X1, X2, Y, cmap=cm.gist_earth, label="terrain")
-    # axs.plot_surface(X1, X2, y_tilde.reshape(n, n), color="blue", label="prediction")
-    # # plt.show()
-
-
-    # # PLOT MSE AND R2
-    # results = Results(model, (x1, x2), y, maxdegree, params=params, multidim=multidim, with_std=True)
-    # results.train_and_predict_all_models()
-    # results.calculate_MSE_across_degrees()
-    # results.calculate_R2_across_degrees()
-    # plot_MSE_and_R2_scores(results)
-    # plot_optimal_betas(results)
-
-    # PLOT FRANKE
-    # x, y, = generate_data(n, seed, multidim, noise=False)
-    # ols = OrdinaryLeastSquares(maxdegree, multidim=multidim)
-    # X = ols.create_design_matrix(x)
-    # X_train, X_test, y_train, y_test = ols.split_test_train(X, y)
-    # ols.fit(X_train, y_train, with_std=False)
-    # X_train = ols.transform(X_train)
-    # X_test = ols.transform(X_test)
-    # ols.train(X_train, y_train)
-    # y_tilde = ols.predict(ols.transform(X))
-    # X1, X2 = x
-    # X1 = X1.reshape(n, n)
-    # X2 = X2.reshape(n, n)
-    # y = y.reshape(n, n)
-    # fig, axs = plt.subplots(subplot_kw={"projection": "3d"})
-    # axs.plot_surface(X1, X2, y)
-    # axs.plot_surface(X1, X2, y_tilde.reshape(n, n))
-    # plt.show()
-
