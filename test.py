@@ -11,7 +11,7 @@ from sklearn.model_selection import KFold
 
 
 import LinearRegression as linreg
-from results import Results, generate_data
+from results import Results, generate_data_Franke, generate_data_terrain 
 import plotroutines
 
 
@@ -22,7 +22,7 @@ def test_multivariate_design_matrix(n, degree, seed):
     """
     Test construction of multivariate design matrix. Compare to scikit-learn.
     """
-    X, Y = generate_data(n, seed, multidim=True)
+    X, Y = generate_data_Franke(n, seed, multidim=True)
     X1, X2 = X
 
     OLS = linreg.BaseModel(degree, multidim=True)
@@ -44,7 +44,7 @@ def test_univariate_design_matrix(n, degree, seed):
     """
     Test construction of univariate design matrix. Compare to scikit-learn.
     """
-    x, y = generate_data(n, seed, multidim=False)
+    x, y = generate_data_Franke(n, seed, multidim=False)
     y = np.zeros(n)
 
     OLS = linreg.BaseModel(degree, multidim=False)
@@ -60,7 +60,7 @@ def test_univariate_design_matrix(n, degree, seed):
         "n, degree, seed, multidim", [(10, 2, 8, True), (100, 5, 103, False), (100, 10, 45, True)]
 )
 def test_fit_scaler_transform(n, degree, seed, multidim):
-    x, y = generate_data(n, seed, multidim=multidim)
+    x, y = generate_data_Franke(n, seed, multidim=multidim)
 
     OLS = linreg.BaseModel(degree, multidim=multidim)
     X = OLS.create_design_matrix(x)
@@ -214,7 +214,7 @@ def test_compute_optimal_beta_Rdige_univariate(n, degree, func, lmbda):
     assert np.allclose(beta, beta_sklearn)
 
 
-def compare_kfold_to_sklearn():
+def test_kfold_CV():
     maxdegree = 6
     nsamples = 100
     nlambdas = 500
@@ -246,6 +246,32 @@ def compare_kfold_to_sklearn():
         estimated_mse[i] = ridge.kfold_CV(k, maxdegree, param)
 
     assert np.allclose(estimated_mse_sklearn, estimated_mse_sklearn)
+
+
+def test_predict_ridge():
+    n = 15
+    start = 0
+    step = 1
+    filename="datasets/SRTM_data_Norway_1.tif"
+    (x1, x2), y = generate_data_terrain(n, start, step, filename)
+
+    degree = 4
+    param = 0.1
+
+    ridge = linreg.RidgeRegression(degree, param, multidim=True)
+    X = ridge.create_design_matrix((x1, x2))
+    ridge.fit(X, y, with_std=True)
+    X_my = ridge.transform(X)
+    ridge.train(X_my, y)
+    y_tilde = ridge.predict(X_my)
+
+    scaler = StandardScaler(with_std=True)
+    X_sklearn = scaler.fit_transform(X)
+    ridge_sklearn = Ridge(alpha=param)
+    ridge_sklearn.fit(X_sklearn, y)
+    y_tilde_sklearn = ridge_sklearn.predict(X_sklearn)
+
+    assert np.allclose(y_tilde, y_tilde_sklearn)
 
 
 if __name__ == "__main__":
