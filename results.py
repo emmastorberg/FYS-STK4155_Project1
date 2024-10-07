@@ -40,7 +40,7 @@ class Results:
         self.y_tilde_train = {}
         self.y_tilde_test = {}
 
-    def train_and_predict_all_models(self):
+    def train_and_predict_all_models(self) -> None:
         """
         Train, predict and store values across all degrees and hyper parameters.
         """
@@ -79,8 +79,8 @@ class Results:
         some known output values y.
 
         Args:
-            y (np.ndarray): known y values
-            y_tilde (np.ndarray): y values as predicted by model
+            y (np.ndarray): known y values.
+            y_tilde (np.ndarray): y values as predicted by model.
 
         Returns:
             float: calculated mean squared error
@@ -98,8 +98,8 @@ class Results:
         values y.
 
         Args:
-            y (np.ndarray): known y values
-            y_tilde (np.ndarray): y values as predicted by model
+            y (np.ndarray): known y values.
+            y_tilde (np.ndarray): y values as predicted by model.
 
         Returns:
             float: calculated R2 score
@@ -235,7 +235,7 @@ class Results:
         for degree in self.degrees:
 
             X = self.X[degree]
-            linreg = self.model(degree, self.multidim, param)
+            linreg = self.model(degree, param, self.multidim)
             X_train, X_test, y_train, y_test = linreg.split_test_train(X, self.y, test_size=self.test_size)
 
             if self.scale:
@@ -272,7 +272,6 @@ class Results:
         X = self.X[degree]
         Xpd = pd.DataFrame(X)
         Xpd = Xpd - Xpd.mean()
-        print(Xpd)
         correlation_matrix = Xpd.corr()
         formatted_matrix = correlation_matrix.round(2)
         print(formatted_matrix)
@@ -339,7 +338,19 @@ def generate_data_Franke(n: int, seed: int | None = None, multidim: bool = False
         return x, y
     
     
-def generate_data_terrain(n, start, step=1, filename="datasets/SRTM_data_Norway_1.tif"):
+def generate_data_terrain(n: int, start: int, step: int = 1, filename: str = "datasets/SRTM_data_Norway_1.tif"):
+    """Generates terrain data to be provided to the model.
+
+    Args:
+        n (int): The number of data points to generate along each dimension.
+        start (int): The starting index in the terrain data from which to extract the points.
+        step (int): The interval between consecutive data points to collect (i.e., how many indices to skip).
+        filename (str): The path to the TIFF file containing the terrain data.
+
+    Returns:
+        tuple[np.ndarray]: A tuple containing the input data and output data. 
+                           If multivariate, the input data is itself a tuple of arrays X1 and X2.
+    """
     x1 = np.linspace(0, 1, n)
     x2 = np.linspace(0, 1, n)
     X1, X2 = np.meshgrid(x1, x2)

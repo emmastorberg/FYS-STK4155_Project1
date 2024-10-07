@@ -8,7 +8,14 @@ class BaseModel:
             self, 
             degree: int, 
             multidim: bool = True,
-            ):
+            ) -> None:
+        """
+        Initialize the BaseModel.
+
+        Args:
+            degree (int): The degree of the polynomial for fitting.
+            multidim (bool, optional): Whether to use a 2D polynomial. Default is True.
+        """
         self.degree = degree
         self.multidim = multidim
 
@@ -20,8 +27,8 @@ class BaseModel:
 
         self.scale = False
         self.scaler = None
-        self._y_train_mean = None                       # Mean of training output
-        self.beta_hat = None                            # Optimal coefficients
+        self._y_train_mean = None
+        self.beta_hat = None
 
     def create_design_matrix(self, x: np.ndarray | tuple[np.ndarray]) -> np.ndarray:
         """
@@ -71,7 +78,7 @@ class BaseModel:
 
         Args:
             X (np.ndarray): Design matrix.
-            y (np.ndarray): Output data
+            y (np.ndarray): Output data.
 
         Returns:
             tuple[np.ndarray]: X_train, X_test, y_train, y_test
@@ -87,6 +94,7 @@ class BaseModel:
 
         Args:
             X_train (np.ndarray): The training matrix for this model.
+            y_train (np.ndarray): The training output.
 
         Returns:
             (np.ndarray): The scaled training matrix, where each feature has been standardized to 
@@ -120,7 +128,17 @@ class BaseModel:
         """
         raise NotImplementedError
     
-    def predict(self, X):
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """
+        Predict the output for the given input data using the model's learned parameters.
+        Adds mean of `y_train` if scaling is used. 
+
+        Args:
+            X (np.ndarray): Input data for prediction.
+
+        Returns:
+            np.ndarray: Predicted output values.
+        """
         y_pred = X @ self.beta_hat
         if self.scale:
             y_pred += self._y_train_mean

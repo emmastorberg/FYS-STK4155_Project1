@@ -60,6 +60,9 @@ def test_univariate_design_matrix(n, degree, seed):
         "n, degree, seed, multidim", [(10, 2, 8, True), (100, 5, 103, False), (100, 10, 45, True)]
 )
 def test_fit_scaler_transform(n, degree, seed, multidim):
+    """
+    Test BaseModel's methods `fit` and `transform`. Compare to scikit-learn.
+    """
     x, y = generate_data_Franke(n, seed, multidim=multidim)
 
     OLS = linreg.BaseModel(degree, multidim=multidim)
@@ -86,7 +89,7 @@ def test_fit_scaler_transform(n, degree, seed, multidim):
 )
 def test_MSE(y_true, y_pred):
     """
-    Test static method 'calculate_MSE'. Compare to scikit-learn.
+    Test static method 'mean_squared_error'. Compare to scikit-learn.
     """
     expected = mean_squared_error(y_true, y_pred)
     computed = Results.mean_squared_error(y_true, y_pred)
@@ -102,7 +105,7 @@ def test_MSE(y_true, y_pred):
 )
 def test_R2_score(y_true, y_pred):
     """
-    Test static method 'calculate_R2_score'. Compare to scikit-learn.
+    Test static method 'r2_score'. Compare to scikit-learn.
     """
     expected = r2_score(y_true, y_pred)
     computed = Results.r2_score(y_true, y_pred)
@@ -116,7 +119,10 @@ def test_R2_score(y_true, y_pred):
             (50, 5, lambda X1, X2: 4 * np.sin(X1) + X2**4),
         ]
 )
-def test_compute_optimal_beta_OLS_multivariate(n, degree, func):
+def test_train_OLS_multivariate(n, degree, func):
+    """
+    Test `OrdinaryLeastSquares.train()` for 2D case. Compare to scikit-learn.
+    """
     x1 = np.linspace(0, 1, n)
     x2 = np.linspace(0, 1, n)
     X1, X2 = np.meshgrid(x1, x2)
@@ -146,6 +152,9 @@ def test_compute_optimal_beta_OLS_multivariate(n, degree, func):
         ]
 )
 def test_compute_optimal_beta_OLS_univariate(n, degree, func):
+    """
+    Test `OrdinaryLeastSquares.train()` for 1D case. Compare to scikit-learn.
+    """
     x = np.linspace(0, 1, n).reshape(-1, 1)
     y = func(x)
 
@@ -169,6 +178,9 @@ def test_compute_optimal_beta_OLS_univariate(n, degree, func):
         ]
 )
 def test_compute_optimal_beta_Ridge_multivariate(n, degree, func, lmbda):
+    """
+    Test `RidgeRegression.train()` for 2D case. Compare to scikit-learn.
+    """
     x1 = np.linspace(0, 1, n)
     x2 = np.linspace(0, 1, n)
     X1, X2 = np.meshgrid(x1, x2)
@@ -198,6 +210,9 @@ def test_compute_optimal_beta_Ridge_multivariate(n, degree, func, lmbda):
         ]
 )
 def test_compute_optimal_beta_Rdige_univariate(n, degree, func, lmbda):
+    """
+    Test `RidgeRegression.train()` for 1D case. Compare to scikit-learn.
+    """
     x = np.linspace(0, 1, n).reshape(-1, 1)
     y = func(x)
 
@@ -215,6 +230,9 @@ def test_compute_optimal_beta_Rdige_univariate(n, degree, func, lmbda):
 
 
 def test_kfold_CV():
+    """
+    Test `Results.kfold_CV()`. Compare to scikit-learn.
+    """
     maxdegree = 6
     nsamples = 100
     nlambdas = 500
@@ -249,6 +267,9 @@ def test_kfold_CV():
 
 
 def test_predict_ridge():
+    """
+    Test `predict` method, ridge. Compare to scikit-learn.
+    """
     n = 15
     start = 0
     step = 1
@@ -272,9 +293,3 @@ def test_predict_ridge():
     y_tilde_sklearn = ridge_sklearn.predict(X_sklearn)
 
     assert np.allclose(y_tilde, y_tilde_sklearn)
-
-
-if __name__ == "__main__":
-    compare_kfold_to_sklearn()
-    
-

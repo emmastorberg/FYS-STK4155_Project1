@@ -12,11 +12,6 @@ import results
 
 def aesthetic_2D():
     plt.rcParams.update({
-        # "text.usetex": True,                            # Use LaTeX for all text
-        # "font.family": "serif",                         # Use a serif font
-        # "font.serif": ["Computer Modern"],              # Use the Computer Modern font
-        # "text.latex.preamble": r"\usepackage{amsmath}", # If you want to include additional LaTeX packages
-
         # Matplotlib style settings similar to seaborn's default style
         "axes.facecolor": "#eaeaf2",      # Background color of the plot
         "axes.edgecolor": "white",       # Color of the plot edge
@@ -77,7 +72,7 @@ def plot_terrain(n: int, start: int, step: int, ax=None, terrain_file="datasets/
     ax.set_xticks([])
     ax.set_yticks([])
 
-    ax.view_init(elev=27, azim=37, roll=0)
+    ax.view_init(elev=32, azim=-139, roll=0)
 
     if savefig:
         plt.savefig(f"figures/{filename}")
@@ -213,15 +208,14 @@ def plot_mse_per_hyper_param_all_instances(
     axs[0].set_xscale("log")
     axs[1].set_xscale("log")
 
-    axs[0].set_title("Franke Function")
-    axs[1].set_title("Terrain Data")
+    axs[0].set_title(f"Franke Function (degree {degree_F})")
+    axs[1].set_title(f"Terrain Data (degree {degree_T})")
     axs[0].legend()
     axs[1].legend()
 
     plt.tight_layout()
-
-    plt.show()
     plt.savefig(f"figures/{filename}")
+    plt.show()
     plt.close()
 
 
@@ -287,9 +281,8 @@ def plot_r2_score_per_hyper_param_all_instances(
     axs[1].legend()
 
     plt.tight_layout()
-
-    plt.show()
     plt.savefig(f"figures/{filename}")
+    plt.show()
     plt.close()
 
 
@@ -303,7 +296,6 @@ def plot_CV_table(instance, datatype, filename):
     sns.heatmap(df.T, cmap=cmap, annot=True, fmt=".2f", cbar=True, ax=ax)
 
     ax.set_title(f"{datatype} ({instance.name})", fontsize=16)
-    # ax.set_yscale("log")
     ax.set_xlabel("Degree of Polynomial Model")
     ax.set_ylabel(r"$\lambda$")
 
@@ -340,8 +332,8 @@ def plot_mse_per_polydegree_all_instances(instances_F, instances_T, param_F, par
     axs[0].xaxis.set_major_locator(MultipleLocator(1))
     axs[1].xaxis.set_major_locator(MultipleLocator(1))
 
-    axs[0].set_title(fr"Franke Function ($\lambda$ = {param_F:.1e})")
-    axs[1].set_title(fr"Terrain Data ($\lambda$ = {param_T:.1e})")
+    axs[0].set_title(fr"Franke Function ($\lambda$ = {param_F})")
+    axs[1].set_title(fr"Terrain Data ($\lambda$ = {param_T})")
     axs[0].legend()
     axs[1].legend()
 
@@ -378,8 +370,8 @@ def plot_r2_score_per_polydegree_all_instances(instances_F, instances_T, param_F
     axs[0].xaxis.set_major_locator(MultipleLocator(1))
     axs[1].xaxis.set_major_locator(MultipleLocator(1))
 
-    axs[0].set_title(fr"Franke Function ($\lambda$ = {param_F:.1e})")
-    axs[1].set_title(fr"Terrain Data ($\lambda$ = {param_T:.1e})")
+    axs[0].set_title(fr"Franke Function ($\lambda$ = {param_F})")
+    axs[1].set_title(fr"Terrain Data ($\lambda$ = {param_T})")
     axs[0].legend()
     axs[1].legend()
 
@@ -389,13 +381,13 @@ def plot_r2_score_per_polydegree_all_instances(instances_F, instances_T, param_F
     plt.close()
     
 
-def plot_optimal_coefficients(instances_F, instances_T, param_F, param_T, filename):
+def plot_optimal_coefficients(instances_F, instances_T, param_F, param_T, maxdegree, filename):
     aesthetic_2D()
 
     params_F = [None, param_F, param_F]
     params_T = [None, param_T, param_T]
 
-    degrees = instances_F[0].degrees
+    degrees = instances_F[0].degrees[:maxdegree]
 
     colors = ["royalblue", "indianred", "limegreen"]
 
@@ -415,8 +407,8 @@ def plot_optimal_coefficients(instances_F, instances_T, param_F, param_T, filena
     axs[0].xaxis.set_major_locator(MultipleLocator(1))
     axs[1].xaxis.set_major_locator(MultipleLocator(1))
 
-    axs[0].set_title(fr"Franke Function ($\lambda$ = {param_F:.1e})")
-    axs[1].set_title(fr"Terrain Data ($\lambda$ = {param_T:.1e})")
+    axs[0].set_title(fr"Franke Function ($\lambda$ = {param_F})")
+    axs[1].set_title(fr"Terrain Data ($\lambda$ = {param_T})")
 
     plt.tight_layout()
     plt.savefig(f"figures/{filename}")
@@ -568,8 +560,8 @@ def plot_true_vs_predicted_Franke(y_tilde_high_n, y_tilde_low_n, high_n, low_n, 
     axs[1,1].yaxis.set_major_locator(MultipleLocator(0.5))
     axs[1,1].zaxis.set_major_locator(MultipleLocator(0.5))
 
+    plt.savefig(f"figures/{filename}")
     plt.show()
-    # plt.savefig(f"figures/{filename}")
     plt.close()
 
 def plot_true_vs_predicted_terrain(
@@ -603,11 +595,68 @@ def plot_true_vs_predicted_terrain(
     axs[1,1].plot_surface(X1_low, X2_low, Y_tilde_low)
 
     axs[0,1].set_xticks([])
+    axs[1,1].set_xticks([])
+    axs[0,1].set_yticks([])
     axs[1,1].set_yticks([])
 
-    axs[0,1].view_init(elev=27, azim=37, roll=0)
-    axs[1,1].view_init(elev=27, azim=37, roll=0)
+    axs[0,1].view_init(elev=32, azim=-139, roll=0)
+    axs[1,1].view_init(elev=32, azim=-139, roll=0)
 
+    plt.savefig(f"figures/{filename}")
     plt.show()
-    # plt.savefig(f"figures/{filename}")
+    plt.close()
+
+
+def plot_true_vs_predicted_Franke_low_n(y_tilde_low_n, low_n, filename):
+    fig, axs = plt.subplots(1, 2, subplot_kw={"projection": "3d"}, figsize=(10, 3.5))
+
+    plot_Franke_function(low_n, noise=True, ax=axs[0])
+
+    x1_low_n = np.linspace(0, 1, low_n)
+    x2_low_n = np.linspace(0, 1, low_n)
+
+    X1_low, X2_low = np.meshgrid(x1_low_n, x2_low_n)
+
+    Y_tilde_low = y_tilde_low_n.reshape(low_n, low_n)
+
+    axs[1].plot_surface(X1_low, X2_low, Y_tilde_low)
+
+    axs[1].set_zlim(0, 1.05)
+    axs[1].xaxis.set_major_locator(MultipleLocator(0.5))
+    axs[1].yaxis.set_major_locator(MultipleLocator(0.5))
+    axs[1].zaxis.set_major_locator(MultipleLocator(0.5))
+
+    plt.savefig(f"figures/{filename}")
+    plt.show()
+    plt.close()
+
+
+def plot_true_vs_predicted_terrain_low_n(
+        y_tilde_low_n,
+        low_n,
+        start,
+        step_low_n,
+        terrain_file,
+        filename,
+    ):
+    fig, axs = plt.subplots(1, 2, subplot_kw={"projection": "3d"}, figsize=(10, 3.5))
+
+    plot_terrain(low_n, start, step_low_n, axs[0], terrain_file)
+
+    x1_low_n = np.linspace(0, 1, low_n)
+    x2_low_n = np.linspace(0, 1, low_n)
+
+    X1_low, X2_low = np.meshgrid(x1_low_n, x2_low_n)
+
+    Y_tilde_low = y_tilde_low_n.reshape(low_n, low_n)
+
+    axs[1].plot_surface(X1_low, X2_low, Y_tilde_low)
+
+    axs[1].set_xticks([])
+    axs[1].set_yticks([])
+
+    axs[1].view_init(elev=32, azim=-139, roll=0)
+
+    plt.savefig(f"figures/{filename}")
+    plt.show()
     plt.close()
