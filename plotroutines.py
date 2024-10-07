@@ -13,22 +13,22 @@ import results
 def aesthetic_2D():
     plt.rcParams.update({
         # Matplotlib style settings similar to seaborn's default style
-        "axes.facecolor": "#eaeaf2",      # Background color of the plot
-        "axes.edgecolor": "white",       # Color of the plot edge
-        "axes.grid": True,              # Enable the grid
-        "grid.color": "white",          # Grid color
-        "grid.linestyle": "-",          # Grid line style
-        "grid.linewidth": 1,          # Grid line width
-        "axes.axisbelow": True,         # Draw gridlines below other plot elements
-        "xtick.color": "gray",          # X-tick color
-        "ytick.color": "gray",          # Y-tick color
+        "axes.facecolor": "#eaeaf2",
+        "axes.edgecolor": "white",
+        "axes.grid": True,
+        "grid.color": "white",
+        "grid.linestyle": "-",
+        "grid.linewidth": 1,
+        "axes.axisbelow": True,
+        "xtick.color": "gray",
+        "ytick.color": "gray",
 
         # Additional stylistic settings
-        "figure.facecolor": "white",    # Background color of the figure
-        "legend.frameon": True,         # Legend frame
-        "legend.framealpha": 0.8,       # Legend frame transparency
-        "legend.fancybox": True,        # Rounded box for the legend
-        "legend.edgecolor": 'lightgray'      # Legend edge color
+        "figure.facecolor": "white",
+        "legend.frameon": True,
+        "legend.framealpha": 0.8,
+        "legend.fancybox": True,
+        "legend.edgecolor": 'lightgray',
     })
 
 
